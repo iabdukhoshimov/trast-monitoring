@@ -1,0 +1,22 @@
+---
+grafana_version: "12.4.2"
+grafana_port: 3000
+grafana_user: "grafana"
+grafana_group: "grafana"
+grafana_install_dir: "/usr/share/grafana"
+grafana_config_dir: "/etc/grafana"
+grafana_data_dir: "/var/lib/grafana"
+grafana_logs_dir: "/var/log/grafana"
+grafana_dashboards_dir: "/var/lib/grafana/dashboards"
+grafana_checksum: {}
+
+grafana_admin_user: "admin"
+grafana_admin_password: ""
+grafana_secret_key: ""
+grafana_domain: "localhost"
+
+# Dashboards to download from grafana.com and auto-provision
+grafana_dashboards:
+  - {id: 1860, rev: 37}   # Node Exporter Full
+  - {id: 13639, rev: 2}   # Loki Logs
+  - {id: 9628, rev: 7}    # PostgreSQL Exporter

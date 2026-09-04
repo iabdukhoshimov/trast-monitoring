@@ -1,0 +1,40 @@
+[server]
+protocol = http
+http_addr =
+http_port = {{ grafana_port }}
+domain = {{ grafana_domain }}
+root_url = %(protocol)s://%(domain)s:%(http_port)s/
+serve_from_sub_path = false
+
+[database]
+type = sqlite3
+path = {{ grafana_data_dir }}/grafana.db
+
+[security]
+admin_user = {{ grafana_admin_user }}
+admin_password = {{ grafana_admin_password }}
+secret_key = {{ grafana_secret_key }}
+disable_gravatar = true
+
+[users]
+allow_sign_up = false
+auto_assign_org = true
+auto_assign_org_role = Viewer
+
+[auth.anonymous]
+enabled = false
+
+[log]
+mode = file
+level = warn
+
+[log.file]
+log_rotate = true
+max_lines = 1000000
+max_size_shift = 28
+
+[paths]
+data = {{ grafana_data_dir }}
+logs = {{ grafana_logs_dir }}
+plugins = {{ grafana_data_dir }}/plugins
+provisioning = {{ grafana_config_dir }}/provisioning

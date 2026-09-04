@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    postgres_exporter_version: "0.16.0"
+    postgres_exporter_checksum:
+      amd64: "5763bd10108e9739e7857377deeb43d2addf07c4c4f4d4c882a08847c15bfd61"
+      arm64: "d88c7d663e4d6a914bca71d2c4a684225e2336c20c62cdce215b2970d2a49b72"
+    # Dummy DSN — postgres_exporter starts but reports pg_up=0 without real DB
+    postgres_exporter_dsn: "postgresql://postgres_exporter:password@localhost:5432/postgres?sslmode=disable"
+  roles:
+    - role: postgres_exporter

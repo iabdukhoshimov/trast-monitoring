@@ -1,0 +1,9 @@
+---
+- name: Write blackbox_exporter config
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: "{{ blackbox_exporter_config_dir }}/blackbox.yml"
+    owner: "{{ blackbox_exporter_user }}"
+    group: "{{ blackbox_exporter_group }}"
+    mode: "0644"
+  notify: Restart blackbox_exporter

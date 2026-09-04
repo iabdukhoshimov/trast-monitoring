@@ -1,0 +1,17 @@
+---
+- name: Open alertmanager port (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ alertmanager_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: ansible_facts.services['firewalld.service'] is defined
+  ignore_errors: true
+
+- name: Open alertmanager port (ufw)
+  community.general.ufw:
+    rule: allow
+    port: "{{ alertmanager_port }}"
+    proto: tcp
+  when: ansible_facts.packages['ufw'] is defined
+  ignore_errors: true

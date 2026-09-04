@@ -1,0 +1,52 @@
+modules:
+
+  # Standard HTTP — expects 2xx response
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: []    # empty = 2xx only
+      method: GET
+      no_follow_redirects: false
+      preferred_ip_protocol: "ip4"
+      tls_config:
+        insecure_skip_verify: false
+
+  # HTTP — accepts 2xx OR 401 (for auth-protected endpoints)
+  http_2xx_or_401:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202, 204, 301, 302, 401]
+      method: GET
+      preferred_ip_protocol: "ip4"
+      tls_config:
+        insecure_skip_verify: false
+
+  # HTTP with self-signed / internal certs
+  http_2xx_insecure:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: []
+      method: GET
+      preferred_ip_protocol: "ip4"
+      tls_config:
+        insecure_skip_verify: true
+
+  # TCP port reachability
+  tcp_connect:
+    prober: tcp
+    timeout: 10s
+    tcp:
+      preferred_ip_protocol: "ip4"
+
+  # ICMP ping
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: "ip4"

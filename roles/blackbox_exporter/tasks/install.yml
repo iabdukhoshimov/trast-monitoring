@@ -1,0 +1,49 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set blackbox_exporter download vars
+  ansible.builtin.set_fact:
+    _bb_archive: "blackbox_exporter-{{ blackbox_exporter_version }}.linux-{{ _arch }}.tar.gz"
+    _bb_url: "https://github.com/prometheus/blackbox_exporter/releases/download/v{{ blackbox_exporter_version }}"
+
+- name: Check installed blackbox_exporter version
+  ansible.builtin.command: "{{ blackbox_exporter_install_dir }}/blackbox_exporter --version"
+  register: _bb_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install blackbox_exporter
+  when: blackbox_exporter_version not in ((_bb_installed.stdout | default('')) + (_bb_installed.stderr | default('')))
+  block:
+    - name: Download blackbox_exporter
+      ansible.builtin.get_url:
+        url: "{{ _bb_url }}/{{ _bb_archive }}"
+        dest: "/tmp/{{ _bb_archive }}"
+        checksum: "sha256:{{ blackbox_exporter_checksum[_arch] }}"
+        mode: "0644"
+
+    - name: Extract blackbox_exporter
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _bb_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install blackbox_exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/blackbox_exporter-{{ blackbox_exporter_version }}.linux-{{ _arch }}/blackbox_exporter"
+        dest: "{{ blackbox_exporter_install_dir }}/blackbox_exporter"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart blackbox_exporter
+
+    - name: Remove blackbox_exporter archive and extracted dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _bb_archive }}"
+        - "/tmp/blackbox_exporter-{{ blackbox_exporter_version }}.linux-{{ _arch }}"

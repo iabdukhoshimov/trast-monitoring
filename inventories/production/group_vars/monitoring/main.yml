@@ -1,0 +1,81 @@
+---
+# ── Prometheus ────────────────────────────────────────────────────────────────
+prometheus_version: "3.11.0"
+prometheus_scrape_interval: "15s"
+prometheus_retention: "30d"
+prometheus_cluster_name: "production"
+prometheus_checksum:
+  amd64: "ff799c3e4c318e17dec14aaaa406a4da328fabb4578336b36d96d893870c3b76"
+  arm64: "4d983175e77161e30b94922c49fdb681cf849439613d24a026bbb8d1ca4e8728"
+
+# ── Alertmanager ──────────────────────────────────────────────────────────────
+alertmanager_version: "0.31.1"
+alertmanager_checksum:
+  amd64: "35191cbd9d4f8162458b78dd7e93990cccd246044d9a6f788adb1c66ac3ea07b"
+  arm64: "266dda88b64318c27847ef9af4ff450fc178c827550a8039420c5ca8657a4a8b"
+alertmanager_telegram_bot_token: "{{ vault_telegram_bot_token }}"
+alertmanager_telegram_chat_id: "{{ vault_telegram_chat_id }}"
+
+# ── Loki ──────────────────────────────────────────────────────────────────────
+loki_version: "3.7.1"
+loki_retention_period: "30d"
+loki_checksum:
+  amd64: "ef027d63a625d5b74e917b72ae832f187f151e486de15f0515d6af1d6a56aa70"
+  arm64: "7cc8c1246fa6466cbcf5c64898ba6e77f5ef20541fb156790eb20d7cd146638c"
+
+# ── Grafana ───────────────────────────────────────────────────────────────────
+grafana_version: "12.4.2"
+# SHA256 for grafana OSS — get from https://grafana.com/grafana/download?edition=oss
+grafana_checksum:
+  amd64: "f240b200a803bf64592fae645331750c2681df5f07496743d714db12393a591f"
+  arm64: "28f37f0952e923e90aed02c7d71cef7443705a9a37ba5439b76d7f72aeb1a63f"
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+grafana_secret_key: "{{ vault_grafana_secret_key }}"
+grafana_domain: "localhost"
+grafana_dashboards:
+  - {id: 1860, rev: 37}   # Node Exporter Full
+  - {id: 13639, rev: 2}   # Loki Logs
+  - {id: 9628, rev: 7}    # PostgreSQL Exporter
+  - {id: 7353, rev: 1}    # MongoDB Overview (percona/mongodb_exporter)
+
+# ── Node Exporter (self-monitoring) ───────────────────────────────────────────
+node_exporter_version: "1.11.0"
+node_exporter_checksum:
+  amd64: "4f8fbd23b8380b8fb720b125fb9029de261dc5fcd68bfe81ae010c0d32f5f6c3"
+  arm64: "cd09ceffd418e91c25365ad008b2baac88fa1743632b71c620829d3d5596b141"
+
+# ── Blackbox Exporter ─────────────────────────────────────────────────────────
+blackbox_exporter_version: "0.28.0"
+blackbox_exporter_checksum:
+  amd64: "caf5d242fb1cf6d5cb678f3f799f22703d4fafea26b03dcbbd7e1f1825e06329"
+  arm64: "63312be0983d85e5109710a7dc93df3051157ae581853fa3655d171cc1b2806e"
+
+# HTTP targets to probe — add your application URLs here.
+# Use http_2xx for standard pages, http_2xx_or_401 for auth-protected endpoints,
+# http_2xx_insecure for self-signed certs.
+prometheus_blackbox_http_targets:
+  - url: "http://localhost:9090/-/healthy"
+    module: http_2xx
+    name: prometheus
+  - url: "http://localhost:9093/-/healthy"
+    module: http_2xx
+    name: alertmanager
+# Add your app endpoints below:
+# - url: "https://yourapp.example.com"
+#   module: http_2xx
+#   name: myapp
+# - url: "https://yourapp.example.com/api/v1/users"
+#   module: http_2xx_or_401
+#   name: myapp-api
+
+prometheus_blackbox_tcp_targets:
+  - host: "localhost:9090"
+    name: prometheus
+  - host: "localhost:9093"
+    name: alertmanager
+  - host: "localhost:3000"
+    name: grafana
+  - host: "localhost:3100"
+    name: loki
+
+prometheus_blackbox_icmp_targets: []

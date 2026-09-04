@@ -1,0 +1,19 @@
+[Unit]
+Description=Node Exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ node_exporter_user }}
+Group={{ node_exporter_group }}
+Type=simple
+Restart=on-failure
+ExecStart={{ node_exporter_install_dir }}/node_exporter \
+  --web.listen-address=:{{ node_exporter_port }} \
+  --collector.disable-defaults \
+{% for collector in node_exporter_collectors %}
+  --collector.{{ collector }} \
+{% endfor %}
+
+[Install]
+WantedBy=multi-user.target

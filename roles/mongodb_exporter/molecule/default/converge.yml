@@ -1,0 +1,10 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    mongodb_exporter_version: "0.40.0"
+    mongodb_exporter_checksum: {}
+    # Dummy URI — exporter starts but reports mongodb_up=0 without real MongoDB
+    mongodb_exporter_uri: "mongodb://localhost:27017"
+  roles:
+    - role: mongodb_exporter

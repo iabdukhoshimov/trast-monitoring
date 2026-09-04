@@ -1,0 +1,37 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Check mongodb_exporter service is running
+      ansible.builtin.systemd:
+        name: mongodb_exporter
+      register: svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that: svc.status.ActiveState == "active"
+        fail_msg: "mongodb_exporter service is not active"
+
+    - name: Check port 9216 is listening
+      ansible.builtin.wait_for:
+        port: 9216
+        timeout: 10
+
+    - name: Check metrics endpoint responds
+      ansible.builtin.uri:
+        url: "http://localhost:9216/metrics"
+        status_code: 200
+
+    - name: Check env file exists and is not world-readable
+      ansible.builtin.stat:
+        path: /etc/mongodb_exporter/mongodb_exporter.env
+      register: env_file
+
+    - name: Assert env file exists
+      ansible.builtin.assert:
+        that: env_file.stat.exists
+
+    - name: Assert env file not world-readable (URI contains credentials)
+      ansible.builtin.assert:
+        that: not env_file.stat.woth
+        fail_msg: "mongodb_exporter.env is world-readable — URI with credentials is exposed"

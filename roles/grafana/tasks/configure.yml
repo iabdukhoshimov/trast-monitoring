@@ -1,0 +1,27 @@
+---
+- name: Write grafana.ini
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: "{{ grafana_config_dir }}/grafana.ini"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: "0640"
+  notify: Restart grafana
+
+- name: Provision datasources
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: "{{ grafana_config_dir }}/provisioning/datasources/datasources.yml"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: "0644"
+  notify: Restart grafana
+
+- name: Provision dashboard discovery config
+  ansible.builtin.template:
+    src: dashboards.yml.j2
+    dest: "{{ grafana_config_dir }}/provisioning/dashboards/dashboards.yml"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: "0644"
+  notify: Restart grafana

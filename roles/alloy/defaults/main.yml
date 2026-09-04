@@ -1,0 +1,19 @@
+---
+alloy_version: "1.16.1"
+alloy_http_port: 12345
+alloy_user: "alloy"
+alloy_group: "alloy"
+alloy_install_dir: "/usr/local/bin"
+alloy_config_dir: "/etc/alloy"
+alloy_data_dir: "/var/lib/alloy"
+alloy_checksum: {}
+
+alloy_loki_url: ""
+
+# "docker" — ship container logs via Docker socket
+# "file"   — ship log files from alloy_file_paths
+alloy_log_source: "docker"
+alloy_file_paths:
+  - "/var/log/*.log"
+
+alloy_docker_socket: "unix:///var/run/docker.sock"

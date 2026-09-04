@@ -1,0 +1,75 @@
+---
+name: CI
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: ansible-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: molecule-requirements.txt
+
+      - name: Install ansible-lint
+        run: pip install ansible-lint>=6.0.0
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run ansible-lint
+        run: ansible-lint --profile production
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+
+  molecule:
+    name: "molecule / ${{ matrix.role }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: lint
+    strategy:
+      matrix:
+        role:
+          - node_exporter
+          - blackbox_exporter
+          - prometheus
+          - alertmanager
+          - loki
+          - grafana
+          - alloy
+          - postgres_exporter
+          - mongodb_exporter
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: molecule-requirements.txt
+
+      - name: Install Molecule
+        run: pip install -r molecule-requirements.txt
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run Molecule tests
+        working-directory: roles/${{ matrix.role }}
+        run: molecule test
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"

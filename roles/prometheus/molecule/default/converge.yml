@@ -1,0 +1,19 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    prometheus_version: "3.11.0"
+    prometheus_checksum:
+      amd64: "ff799c3e4c318e17dec14aaaa406a4da328fabb4578336b36d96d893870c3b76"
+      arm64: "4d983175e77161e30b94922c49fdb681cf849439613d24a026bbb8d1ca4e8728"
+    prometheus_scrape_interval: "15s"
+    prometheus_retention: "7d"
+    prometheus_cluster_name: "molecule-test"
+    env: "test"
+    prometheus_blackbox_http_targets: []
+    prometheus_blackbox_tcp_targets: []
+    prometheus_blackbox_icmp_targets: []
+    # groups['targets'] and groups['postgres_hosts'] will be empty in molecule
+    # — prometheus.yml.j2 uses | default([]) so this is safe
+  roles:
+    - role: prometheus

@@ -1,0 +1,10 @@
+.vault_pass
+*.retry
+*.pyc
+__pycache__/
+.molecule/
+
+# vault.yml must be ansible-vault encrypted before committing.
+# If you accidentally committed plaintext, rotate all secrets immediately.
+# Uncomment the line below to block committing plaintext vault entirely:
+# inventories/production/group_vars/all/vault.yml

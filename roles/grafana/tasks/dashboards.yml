@@ -1,0 +1,63 @@
+---
+- name: Skip dashboard import when list is empty
+  ansible.builtin.meta: end_play
+  when: grafana_dashboards | default([]) | length == 0
+
+- name: Wait for Grafana to be ready
+  ansible.builtin.uri:
+    url: "http://localhost:{{ grafana_port }}/api/health"
+    status_code: 200
+  register: _grafana_health
+  until: _grafana_health.status == 200
+  retries: 20
+  delay: 5
+
+- name: Download dashboards from grafana.com
+  ansible.builtin.get_url:
+    url: "https://grafana.com/api/dashboards/{{ item.id }}/revisions/{{ item.rev }}/download"
+    dest: "/tmp/grafana_dashboard_{{ item.id }}.json"
+    mode: "0644"
+    force: false
+  loop: "{{ grafana_dashboards }}"
+
+- name: Read dashboard JSON files
+  ansible.builtin.slurp:
+    src: "/tmp/grafana_dashboard_{{ item.id }}.json"
+  register: _dashboard_slurp
+  loop: "{{ grafana_dashboards }}"
+  loop_control:
+    label: "dashboard {{ item.id }}"
+
+# Import via API so Grafana resolves ${DS_PROMETHEUS} / ${DS_LOKI} template
+# variables against the provisioned datasources. File provisioning does NOT
+# resolve these — panels would show "datasource not found" without this.
+- name: Import dashboards via Grafana API
+  ansible.builtin.uri:
+    url: "http://localhost:{{ grafana_port }}/api/dashboards/import"
+    method: POST
+    user: "{{ grafana_admin_user }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      dashboard: "{{ item.content | b64decode | from_json }}"
+      overwrite: true
+      inputs:
+        - name: "DS_PROMETHEUS"
+          type: datasource
+          pluginId: prometheus
+          value: "prometheus"
+        - name: "DS_LOKI"
+          type: datasource
+          pluginId: loki
+          value: "loki"
+        - name: "DS_GRAFANA_LOKI_DATASOURCE"
+          type: datasource
+          pluginId: loki
+          value: "loki"
+      folderId: 0
+    status_code: [200]
+  loop: "{{ _dashboard_slurp.results }}"
+  loop_control:
+    label: "dashboard {{ item.item.id }}"
+  no_log: true

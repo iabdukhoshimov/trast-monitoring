@@ -1,0 +1,16 @@
+---
+- name: Install mongodb_exporter systemd unit
+  ansible.builtin.template:
+    src: mongodb_exporter.service.j2
+    dest: /etc/systemd/system/mongodb_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart mongodb_exporter
+
+- name: Enable and start mongodb_exporter
+  ansible.builtin.systemd:
+    name: mongodb_exporter
+    enabled: true
+    state: started
+    daemon_reload: true

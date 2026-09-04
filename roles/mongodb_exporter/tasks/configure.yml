@@ -1,0 +1,9 @@
+---
+- name: Write mongodb_exporter env file (contains URI with credentials)
+  ansible.builtin.template:
+    src: mongodb_exporter.env.j2
+    dest: "{{ mongodb_exporter_config_dir }}/mongodb_exporter.env"
+    owner: "{{ mongodb_exporter_user }}"
+    group: "{{ mongodb_exporter_group }}"
+    mode: "0640"
+  notify: Restart mongodb_exporter

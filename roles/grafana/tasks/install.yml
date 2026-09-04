@@ -1,0 +1,83 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set grafana download vars
+  ansible.builtin.set_fact:
+    _grafana_archive: "grafana-{{ grafana_version }}.linux-{{ _arch }}.tar.gz"
+    _grafana_url: "https://dl.grafana.com/oss/release"
+    _grafana_extract_dir: "/opt/grafana-{{ grafana_version }}"
+
+- name: Check installed grafana version
+  ansible.builtin.command: /usr/local/bin/grafana-server --version
+  register: _grafana_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install grafana
+  when: grafana_version not in ((_grafana_installed.stdout | default('')) + (_grafana_installed.stderr | default('')))
+  block:
+    - name: Download grafana (no checksum — fill in group_vars)
+      ansible.builtin.get_url:
+        url: "{{ _grafana_url }}/{{ _grafana_archive }}"
+        dest: "/tmp/{{ _grafana_archive }}"
+        mode: "0644"
+        timeout: 300
+      when: grafana_checksum[_arch] | default('') == ''
+
+    - name: Download grafana (with checksum)
+      ansible.builtin.get_url:
+        url: "{{ _grafana_url }}/{{ _grafana_archive }}"
+        dest: "/tmp/{{ _grafana_archive }}"
+        checksum: "sha256:{{ grafana_checksum[_arch] }}"
+        mode: "0644"
+        timeout: 300
+      when: grafana_checksum[_arch] | default('') != ''
+
+    - name: Extract grafana to /opt
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _grafana_archive }}"
+        dest: /opt
+        remote_src: true
+        creates: "{{ _grafana_extract_dir }}/bin/grafana-server"
+
+    - name: Install grafana binaries
+      ansible.builtin.copy:
+        src: "{{ _grafana_extract_dir }}/bin/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      loop:
+        - grafana
+        - grafana-server
+      notify: Restart grafana
+
+    - name: Symlink grafana home to versioned directory
+      ansible.builtin.file:
+        src: "{{ _grafana_extract_dir }}"
+        dest: "{{ grafana_install_dir }}"
+        state: link
+        force: true
+      notify: Restart grafana
+
+    - name: Remove grafana archive
+      ansible.builtin.file:
+        path: "/tmp/{{ _grafana_archive }}"
+        state: absent
+
+- name: Create grafana directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: "0755"
+  loop:
+    - "{{ grafana_config_dir }}/provisioning/datasources"
+    - "{{ grafana_config_dir }}/provisioning/dashboards"
+    - "{{ grafana_data_dir }}"
+    - "{{ grafana_logs_dir }}"
+    - "{{ grafana_dashboards_dir }}"

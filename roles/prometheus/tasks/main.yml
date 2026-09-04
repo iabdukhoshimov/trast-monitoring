@@ -1,0 +1,29 @@
+---
+- name: Create prometheus system user
+  ansible.builtin.user:
+    name: "{{ prometheus_user }}"
+    group: "{{ prometheus_group }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+
+- name: Create prometheus directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_group }}"
+    mode: "0755"
+  loop:
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_rules_dir }}"
+    - "{{ prometheus_data_dir }}"
+
+- name: Run install tasks
+  ansible.builtin.import_tasks: install.yml
+- name: Run configure tasks
+  ansible.builtin.import_tasks: configure.yml
+- name: Run service tasks
+  ansible.builtin.import_tasks: service.yml
+- name: Run firewall tasks
+  ansible.builtin.import_tasks: firewall.yml

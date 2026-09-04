@@ -1,0 +1,54 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set loki download vars
+  ansible.builtin.set_fact:
+    _loki_archive: "loki-linux-{{ _arch }}.zip"
+    _loki_url: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}"
+
+- name: Check installed loki version
+  ansible.builtin.command: "{{ loki_install_dir }}/loki --version"
+  register: _loki_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install loki
+  when: loki_version not in ((_loki_installed.stdout | default('')) + (_loki_installed.stderr | default('')))
+  block:
+    - name: Download loki
+      ansible.builtin.get_url:
+        url: "{{ _loki_url }}/{{ _loki_archive }}"
+        dest: "/tmp/{{ _loki_archive }}"
+        checksum: "sha256:{{ loki_checksum[_arch] }}"
+        mode: "0644"
+
+    - name: Install unzip
+      ansible.builtin.package:
+        name: unzip
+        state: present
+
+    - name: Extract loki binary
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _loki_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install loki binary
+      ansible.builtin.copy:
+        src: "/tmp/loki-linux-{{ _arch }}"
+        dest: "{{ loki_install_dir }}/loki"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart loki
+
+    - name: Remove loki archive and extracted binary
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _loki_archive }}"
+        - "/tmp/loki-linux-{{ _arch }}"

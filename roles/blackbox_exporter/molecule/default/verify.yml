@@ -1,0 +1,27 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Check blackbox_exporter service is running
+      ansible.builtin.systemd:
+        name: blackbox_exporter
+      register: svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that: svc.status.ActiveState == "active"
+        fail_msg: "blackbox_exporter service is not active"
+
+    - name: Check port 9115 is listening
+      ansible.builtin.wait_for:
+        port: 9115
+        timeout: 10
+
+    - name: Check config file exists
+      ansible.builtin.stat:
+        path: /etc/blackbox_exporter/blackbox.yml
+      register: cfg
+
+    - name: Assert config exists
+      ansible.builtin.assert:
+        that: cfg.stat.exists

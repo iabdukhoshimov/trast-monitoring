@@ -1,0 +1,18 @@
+---
+prometheus_version: "3.11.0"
+prometheus_port: 9090
+prometheus_retention: "30d"
+prometheus_scrape_interval: "15s"
+prometheus_evaluation_interval: "15s"
+prometheus_cluster_name: "production"
+prometheus_user: "prometheus"
+prometheus_group: "prometheus"
+prometheus_install_dir: "/usr/local/bin"
+prometheus_config_dir: "/etc/prometheus"
+prometheus_rules_dir: "/etc/prometheus/rules"
+prometheus_data_dir: "/var/lib/prometheus"
+prometheus_checksum: {}
+
+node_exporter_port: 9100
+postgres_exporter_port: 9187
+mongodb_exporter_port: 9216

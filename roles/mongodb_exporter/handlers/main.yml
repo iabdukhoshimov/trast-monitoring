@@ -1,0 +1,6 @@
+---
+- name: Restart mongodb_exporter
+  ansible.builtin.systemd:
+    name: mongodb_exporter
+    state: restarted
+    daemon_reload: true

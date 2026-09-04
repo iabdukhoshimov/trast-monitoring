@@ -1,0 +1,50 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Check prometheus service is running
+      ansible.builtin.systemd:
+        name: prometheus
+      register: svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that: svc.status.ActiveState == "active"
+        fail_msg: "prometheus service is not active"
+
+    - name: Check port 9090 is listening
+      ansible.builtin.wait_for:
+        port: 9090
+        timeout: 15
+
+    - name: Check health endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:9090/-/healthy"
+        status_code: 200
+
+    - name: Check config file exists
+      ansible.builtin.stat:
+        path: /etc/prometheus/prometheus.yml
+      register: cfg
+
+    - name: Assert config exists
+      ansible.builtin.assert:
+        that: cfg.stat.exists
+
+    - name: Check alert rules file exists
+      ansible.builtin.stat:
+        path: /etc/prometheus/rules/alerting_rules.yml
+      register: rules
+
+    - name: Assert rules exist
+      ansible.builtin.assert:
+        that: rules.stat.exists
+
+    - name: Check recording rules file exists
+      ansible.builtin.stat:
+        path: /etc/prometheus/rules/recording_rules.yml
+      register: recording_rules
+
+    - name: Assert recording rules exist
+      ansible.builtin.assert:
+        that: recording_rules.stat.exists

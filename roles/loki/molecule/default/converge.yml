@@ -1,0 +1,11 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    loki_version: "3.7.1"
+    loki_checksum:
+      amd64: "ef027d63a625d5b74e917b72ae832f187f151e486de15f0515d6af1d6a56aa70"
+      arm64: "7cc8c1246fa6466cbcf5c64898ba6e77f5ef20541fb156790eb20d7cd146638c"
+    loki_retention_period: "7d"
+  roles:
+    - role: loki

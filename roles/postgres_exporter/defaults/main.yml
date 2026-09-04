@@ -1,0 +1,9 @@
+---
+postgres_exporter_version: "0.16.0"
+postgres_exporter_port: 9187
+postgres_exporter_user: "postgres_exporter"
+postgres_exporter_group: "postgres_exporter"
+postgres_exporter_install_dir: "/usr/local/bin"
+postgres_exporter_config_dir: "/etc/postgres_exporter"
+postgres_exporter_checksum: {}
+postgres_exporter_dsn: ""

@@ -1,0 +1,9 @@
+---
+# Full-stack deploy order:
+#   1. monitoring server (prometheus, alertmanager, loki, grafana + self node_exporter)
+#   2. target servers   (node_exporter, optional postgres_exporter, alloy log agent)
+- name: Deploy monitoring server
+  import_playbook: playbooks/monitoring_server.yml
+
+- name: Deploy exporters and log agents on target servers
+  import_playbook: playbooks/target_servers.yml

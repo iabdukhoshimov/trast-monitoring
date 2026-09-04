@@ -1,0 +1,18 @@
+---
+node_exporter_version: "1.11.0"
+node_exporter_port: 9100
+node_exporter_user: "node_exporter"
+node_exporter_group: "node_exporter"
+node_exporter_install_dir: "/usr/local/bin"
+node_exporter_checksum: {}
+
+node_exporter_collectors:
+  - cpu
+  - meminfo
+  - diskstats
+  - filesystem
+  - netdev
+  - loadavg
+  - uname
+  - time
+  - systemd

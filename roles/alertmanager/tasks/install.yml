@@ -1,0 +1,52 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set alertmanager download vars
+  ansible.builtin.set_fact:
+    _am_archive: "alertmanager-{{ alertmanager_version }}.linux-{{ _arch }}.tar.gz"
+    _am_url: "https://github.com/prometheus/alertmanager/releases/download/v{{ alertmanager_version }}"
+
+- name: Check installed alertmanager version
+  ansible.builtin.command: "{{ alertmanager_install_dir }}/alertmanager --version"
+  register: _am_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install alertmanager
+  when: alertmanager_version not in ((_am_installed.stdout | default('')) + (_am_installed.stderr | default('')))
+  block:
+    - name: Download alertmanager
+      ansible.builtin.get_url:
+        url: "{{ _am_url }}/{{ _am_archive }}"
+        dest: "/tmp/{{ _am_archive }}"
+        checksum: "sha256:{{ alertmanager_checksum[_arch] }}"
+        mode: "0644"
+
+    - name: Extract alertmanager
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _am_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install alertmanager binaries
+      ansible.builtin.copy:
+        src: "/tmp/alertmanager-{{ alertmanager_version }}.linux-{{ _arch }}/{{ item }}"
+        dest: "{{ alertmanager_install_dir }}/{{ item }}"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      loop:
+        - alertmanager
+        - amtool
+      notify: Restart alertmanager
+
+    - name: Remove alertmanager archive and extracted dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _am_archive }}"
+        - "/tmp/alertmanager-{{ alertmanager_version }}.linux-{{ _arch }}"

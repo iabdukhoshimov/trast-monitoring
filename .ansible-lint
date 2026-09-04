@@ -1,0 +1,13 @@
+---
+profile: production
+
+# Private temp vars use _ prefix by convention — not a quality issue
+# Firewall ignore_errors is intentional (service may not be active on all distros)
+skip_list:
+  - var-naming[no-role-prefix]
+  - ignore-errors
+
+# Paths to exclude from linting
+exclude_paths:
+  - molecule/
+  - .git/

@@ -1,0 +1,16 @@
+---
+- name: Install grafana systemd unit
+  ansible.builtin.template:
+    src: grafana.service.j2
+    dest: /etc/systemd/system/grafana-server.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart grafana
+
+- name: Enable and start grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    state: started
+    daemon_reload: true

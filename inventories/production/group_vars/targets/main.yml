@@ -1,0 +1,22 @@
+---
+# ── Node Exporter ─────────────────────────────────────────────────────────────
+node_exporter_version: "1.11.0"
+node_exporter_checksum:
+  amd64: "4f8fbd23b8380b8fb720b125fb9029de261dc5fcd68bfe81ae010c0d32f5f6c3"
+  arm64: "cd09ceffd418e91c25365ad008b2baac88fa1743632b71c620829d3d5596b141"
+
+# ── Alloy (log shipping agent) ────────────────────────────────────────────────
+alloy_version: "1.16.1"
+alloy_checksum:
+  amd64: "68fa7b1c75dc701f5bdc5242ce043ddb52f538ede493b7e9fc73226800fbfd3b"
+  arm64: "35d6fbcbbe93e9aab102f1e9c1f853d89730f5eca75afff0b81460eed570c4a5"
+
+# Push logs to Loki on the monitoring server
+alloy_loki_url: "http://{{ monitoring_server_host }}:3100/loki/api/v1/push"
+
+# "docker" — tail container logs via Docker socket (default)
+# "file"   — tail files defined in alloy_file_paths
+alloy_log_source: "docker"
+alloy_file_paths:
+  - "/var/log/*.log"
+  - "/var/log/app/*.log"

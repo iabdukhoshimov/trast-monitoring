@@ -1,0 +1,25 @@
+---
+- name: Create blackbox_exporter system user
+  ansible.builtin.user:
+    name: "{{ blackbox_exporter_user }}"
+    group: "{{ blackbox_exporter_group }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+
+- name: Create config directory
+  ansible.builtin.file:
+    path: "{{ blackbox_exporter_config_dir }}"
+    state: directory
+    owner: "{{ blackbox_exporter_user }}"
+    group: "{{ blackbox_exporter_group }}"
+    mode: "0755"
+
+- name: Run install tasks
+  ansible.builtin.import_tasks: install.yml
+- name: Run configure tasks
+  ansible.builtin.import_tasks: configure.yml
+- name: Run service tasks
+  ansible.builtin.import_tasks: service.yml
+- name: Run firewall tasks
+  ansible.builtin.import_tasks: firewall.yml

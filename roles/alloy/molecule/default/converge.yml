@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    alloy_version: "1.16.1"
+    alloy_checksum:
+      amd64: "68fa7b1c75dc701f5bdc5242ce043ddb52f538ede493b7e9fc73226800fbfd3b"
+      arm64: "35d6fbcbbe93e9aab102f1e9c1f853d89730f5eca75afff0b81460eed570c4a5"
+    # Use file mode in molecule — no Docker socket available inside container
+    alloy_log_source: "file"
+    alloy_file_paths:
+      - "/var/log/*.log"
+    alloy_loki_url: "http://127.0.0.1:3100/loki/api/v1/push"
+  roles:
+    - role: alloy

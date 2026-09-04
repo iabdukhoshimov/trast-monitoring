@@ -1,0 +1,52 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set prometheus download vars
+  ansible.builtin.set_fact:
+    _prom_archive: "prometheus-{{ prometheus_version }}.linux-{{ _arch }}.tar.gz"
+    _prom_url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}"
+
+- name: Check installed prometheus version
+  ansible.builtin.command: "{{ prometheus_install_dir }}/prometheus --version"
+  register: _prom_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install prometheus
+  when: prometheus_version not in ((_prom_installed.stdout | default('')) + (_prom_installed.stderr | default('')))
+  block:
+    - name: Download prometheus
+      ansible.builtin.get_url:
+        url: "{{ _prom_url }}/{{ _prom_archive }}"
+        dest: "/tmp/{{ _prom_archive }}"
+        checksum: "sha256:{{ prometheus_checksum[_arch] }}"
+        mode: "0644"
+
+    - name: Extract prometheus
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _prom_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install prometheus binaries
+      ansible.builtin.copy:
+        src: "/tmp/prometheus-{{ prometheus_version }}.linux-{{ _arch }}/{{ item }}"
+        dest: "{{ prometheus_install_dir }}/{{ item }}"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      loop:
+        - prometheus
+        - promtool
+      notify: Restart prometheus
+
+    - name: Remove prometheus archive and extracted dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _prom_archive }}"
+        - "/tmp/prometheus-{{ prometheus_version }}.linux-{{ _arch }}"

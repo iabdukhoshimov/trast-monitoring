@@ -1,0 +1,11 @@
+---
+loki_version: "3.7.1"
+loki_port: 3100
+loki_grpc_port: 9096
+loki_user: "loki"
+loki_group: "loki"
+loki_install_dir: "/usr/local/bin"
+loki_config_dir: "/etc/loki"
+loki_data_dir: "/var/lib/loki"
+loki_retention_period: "30d"
+loki_checksum: {}

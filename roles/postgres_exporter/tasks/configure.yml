@@ -1,0 +1,9 @@
+---
+- name: Write postgres_exporter env file (contains DSN)
+  ansible.builtin.template:
+    src: postgres_exporter.env.j2
+    dest: "{{ postgres_exporter_config_dir }}/postgres_exporter.env"
+    owner: "{{ postgres_exporter_user }}"
+    group: "{{ postgres_exporter_group }}"
+    mode: "0640"
+  notify: Restart postgres_exporter

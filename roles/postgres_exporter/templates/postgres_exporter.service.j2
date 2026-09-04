@@ -1,0 +1,16 @@
+[Unit]
+Description=PostgreSQL Exporter
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User={{ postgres_exporter_user }}
+Group={{ postgres_exporter_group }}
+Type=simple
+Restart=on-failure
+EnvironmentFile={{ postgres_exporter_config_dir }}/postgres_exporter.env
+ExecStart={{ postgres_exporter_install_dir }}/postgres_exporter \
+  --web.listen-address=:{{ postgres_exporter_port }}
+
+[Install]
+WantedBy=multi-user.target

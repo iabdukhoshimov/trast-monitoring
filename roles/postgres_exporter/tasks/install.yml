@@ -1,0 +1,61 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set postgres_exporter download vars
+  ansible.builtin.set_fact:
+    _pe_archive: "postgres_exporter-{{ postgres_exporter_version }}.linux-{{ _arch }}.tar.gz"
+    _pe_url: "https://github.com/prometheus-community/postgres_exporter/releases/download/v{{ postgres_exporter_version }}"
+
+- name: Check installed postgres_exporter version
+  ansible.builtin.command: "{{ postgres_exporter_install_dir }}/postgres_exporter --version"
+  register: _pe_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install postgres_exporter
+  when: postgres_exporter_version not in ((_pe_installed.stdout | default('')) + (_pe_installed.stderr | default('')))
+  block:
+    - name: Download postgres_exporter (no checksum — fill in group_vars)
+      ansible.builtin.get_url:
+        url: "{{ _pe_url }}/{{ _pe_archive }}"
+        dest: "/tmp/{{ _pe_archive }}"
+        mode: "0644"
+      when: >-
+        postgres_exporter_checksum[_arch] | default('')
+        in ('', 'PLACEHOLDER_get_from_github_releases')
+
+    - name: Download postgres_exporter (with checksum)
+      ansible.builtin.get_url:
+        url: "{{ _pe_url }}/{{ _pe_archive }}"
+        dest: "/tmp/{{ _pe_archive }}"
+        checksum: "sha256:{{ postgres_exporter_checksum[_arch] }}"
+        mode: "0644"
+      when: >-
+        postgres_exporter_checksum[_arch] | default('')
+        not in ('', 'PLACEHOLDER_get_from_github_releases')
+
+    - name: Extract postgres_exporter binary
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _pe_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install postgres_exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/postgres_exporter-{{ postgres_exporter_version }}.linux-{{ _arch }}/postgres_exporter"
+        dest: "{{ postgres_exporter_install_dir }}/postgres_exporter"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart postgres_exporter
+
+    - name: Remove postgres_exporter archive and extracted dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _pe_archive }}"
+        - "/tmp/postgres_exporter-{{ postgres_exporter_version }}.linux-{{ _arch }}"

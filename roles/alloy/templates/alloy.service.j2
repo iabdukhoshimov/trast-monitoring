@@ -1,0 +1,17 @@
+[Unit]
+Description=Grafana Alloy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ alloy_user }}
+Group={{ alloy_group }}
+Type=simple
+Restart=on-failure
+ExecStart={{ alloy_install_dir }}/alloy run \
+  --server.http.listen-addr=0.0.0.0:{{ alloy_http_port }} \
+  --storage.path={{ alloy_data_dir }} \
+  {{ alloy_config_dir }}/config.alloy
+
+[Install]
+WantedBy=multi-user.target

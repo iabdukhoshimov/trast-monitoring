@@ -1,0 +1,10 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    node_exporter_version: "1.11.0"
+    node_exporter_checksum:
+      amd64: "4f8fbd23b8380b8fb720b125fb9029de261dc5fcd68bfe81ae010c0d32f5f6c3"
+      arm64: "cd09ceffd418e91c25365ad008b2baac88fa1743632b71c620829d3d5596b141"
+  roles:
+    - role: node_exporter

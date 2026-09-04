@@ -1,0 +1,10 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    blackbox_exporter_version: "0.28.0"
+    blackbox_exporter_checksum:
+      amd64: "caf5d242fb1cf6d5cb678f3f799f22703d4fafea26b03dcbbd7e1f1825e06329"
+      arm64: "63312be0983d85e5109710a7dc93df3051157ae581853fa3655d171cc1b2806e"
+  roles:
+    - role: blackbox_exporter

@@ -1,0 +1,16 @@
+---
+- name: Install blackbox_exporter systemd unit
+  ansible.builtin.template:
+    src: blackbox_exporter.service.j2
+    dest: /etc/systemd/system/blackbox_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart blackbox_exporter
+
+- name: Enable and start blackbox_exporter
+  ansible.builtin.systemd:
+    name: blackbox_exporter
+    enabled: true
+    state: started
+    daemon_reload: true

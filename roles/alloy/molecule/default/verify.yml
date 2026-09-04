@@ -1,0 +1,43 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Check alloy service is running
+      ansible.builtin.systemd:
+        name: alloy
+      register: svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that: svc.status.ActiveState == "active"
+        fail_msg: "alloy service is not active"
+
+    - name: Check port 12345 is listening
+      ansible.builtin.wait_for:
+        port: 12345
+        timeout: 15
+
+    - name: Check alloy metrics endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:12345/metrics"
+        status_code: 200
+
+    - name: Check alloy ready endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:12345/-/ready"
+        status_code: 200
+      retries: 5
+      delay: 2
+
+    - name: Check alloy config exists
+      ansible.builtin.stat:
+        path: /etc/alloy/config.alloy
+      register: cfg
+
+    - name: Assert config exists
+      ansible.builtin.assert:
+        that: cfg.stat.exists
+
+    - name: Validate alloy config syntax
+      ansible.builtin.command: alloy fmt --verify /etc/alloy/config.alloy
+      changed_when: false

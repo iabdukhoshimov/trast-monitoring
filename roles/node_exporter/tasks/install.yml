@@ -1,0 +1,49 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set node_exporter download vars
+  ansible.builtin.set_fact:
+    _ne_archive: "node_exporter-{{ node_exporter_version }}.linux-{{ _arch }}.tar.gz"
+    _ne_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}"
+
+- name: Check installed node_exporter version
+  ansible.builtin.command: "{{ node_exporter_install_dir }}/node_exporter --version"
+  register: _ne_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install node_exporter
+  when: node_exporter_version not in ((_ne_installed.stdout | default('')) + (_ne_installed.stderr | default('')))
+  block:
+    - name: Download node_exporter
+      ansible.builtin.get_url:
+        url: "{{ _ne_url }}/{{ _ne_archive }}"
+        dest: "/tmp/{{ _ne_archive }}"
+        checksum: "sha256:{{ node_exporter_checksum[_arch] }}"
+        mode: "0644"
+
+    - name: Extract node_exporter binary
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _ne_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install node_exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ _arch }}/node_exporter"
+        dest: "{{ node_exporter_install_dir }}/node_exporter"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart node_exporter
+
+    - name: Remove node_exporter archive and extracted dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _ne_archive }}"
+        - "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ _arch }}"

@@ -1,0 +1,17 @@
+[Unit]
+Description=MongoDB Exporter
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+User={{ mongodb_exporter_user }}
+Group={{ mongodb_exporter_group }}
+Type=simple
+Restart=on-failure
+EnvironmentFile={{ mongodb_exporter_config_dir }}/mongodb_exporter.env
+ExecStart={{ mongodb_exporter_install_dir }}/mongodb_exporter \
+  --web.listen-address=:{{ mongodb_exporter_port }} \
+  --collect-all
+
+[Install]
+WantedBy=multi-user.target

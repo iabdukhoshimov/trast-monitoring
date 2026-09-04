@@ -1,0 +1,32 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Check postgres_exporter service is running
+      ansible.builtin.systemd:
+        name: postgres_exporter
+      register: svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that: svc.status.ActiveState == "active"
+        fail_msg: "postgres_exporter service is not active"
+
+    - name: Check port 9187 is listening
+      ansible.builtin.wait_for:
+        port: 9187
+        timeout: 10
+
+    - name: Check env file exists and is not world-readable
+      ansible.builtin.stat:
+        path: /etc/postgres_exporter/postgres_exporter.env
+      register: env_file
+
+    - name: Assert env file exists
+      ansible.builtin.assert:
+        that: env_file.stat.exists
+
+    - name: Assert env file not world-readable (DSN contains password)
+      ansible.builtin.assert:
+        that: not env_file.stat.woth
+        fail_msg: "postgres_exporter.env is world-readable — DSN with password is exposed"

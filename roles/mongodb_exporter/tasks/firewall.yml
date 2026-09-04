@@ -1,0 +1,17 @@
+---
+- name: Open mongodb_exporter port (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ mongodb_exporter_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: ansible_facts.services['firewalld.service'] is defined
+  ignore_errors: true
+
+- name: Open mongodb_exporter port (ufw)
+  community.general.ufw:
+    rule: allow
+    port: "{{ mongodb_exporter_port }}"
+    proto: tcp
+  when: ansible_facts.packages['ufw'] is defined
+  ignore_errors: true

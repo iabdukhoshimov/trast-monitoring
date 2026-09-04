@@ -1,0 +1,15 @@
+---
+- name: Create node_exporter system user
+  ansible.builtin.user:
+    name: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+
+- name: Run install tasks
+  ansible.builtin.import_tasks: install.yml
+- name: Run service tasks
+  ansible.builtin.import_tasks: service.yml
+- name: Run firewall tasks
+  ansible.builtin.import_tasks: firewall.yml

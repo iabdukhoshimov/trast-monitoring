@@ -1,0 +1,32 @@
+---
+# Deploys all components onto the single dedicated monitoring server.
+# Order: loki must be up before grafana provisions the Loki datasource.
+- name: Install node_exporter on monitoring server (self-monitoring)
+  hosts: monitoring
+  roles:
+    - node_exporter
+
+- name: Deploy Prometheus
+  hosts: monitoring
+  roles:
+    - prometheus
+
+- name: Deploy Alertmanager
+  hosts: monitoring
+  roles:
+    - alertmanager
+
+- name: Deploy Loki
+  hosts: monitoring
+  roles:
+    - loki
+
+- name: Deploy Blackbox Exporter
+  hosts: monitoring
+  roles:
+    - blackbox_exporter
+
+- name: Deploy Grafana
+  hosts: monitoring
+  roles:
+    - grafana

@@ -1,0 +1,45 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'instance', 'severity']
+  group_wait: {{ alertmanager_group_wait }}
+  group_interval: {{ alertmanager_group_interval }}
+  repeat_interval: {{ alertmanager_repeat_interval }}
+  receiver: telegram
+
+  routes:
+    # Watchdog never pages
+    - matchers:
+        - alertname="Watchdog"
+      receiver: blackhole
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token: "{{ alertmanager_telegram_bot_token }}"
+        chat_id: {{ alertmanager_telegram_chat_id }}
+        parse_mode: HTML
+        send_resolved: true
+        message: |
+          {% raw -%}
+          {{ if eq .Status "firing" }}🔴 <b>FIRING</b>{{ else }}✅ <b>RESOLVED</b>{{ end }}
+
+          {{ range .Alerts }}
+          <b>Alert:</b> {{ .Labels.alertname }}
+          <b>Instance:</b> {{ if .Labels.instance }}{{ .Labels.instance }}{{ else }}n/a{{ end }}
+          <b>Severity:</b> {{ .Labels.severity }}
+          <b>Summary:</b> {{ .Annotations.summary }}
+          {{ if .Annotations.description }}<b>Details:</b> {{ .Annotations.description }}{{ end }}
+          {{ end }}
+          {%- endraw %}
+
+  - name: blackhole
+
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal:
+      - instance

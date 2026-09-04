@@ -1,0 +1,230 @@
+groups:
+
+  - name: instance_health
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serveri ishlamayapti"
+          description: "{{ '{{ $labels.job }}' }} {{ '{{ $labels.instance }}' }} serverida 2 daqiqadan beri javob bermayapti."
+
+      - alert: HighCpuUsage
+        expr: instance:node_cpu_utilisation:rate5m > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida CPU yuklanishi yuqori"
+          description: "CPU yuklanishi {{ '{{ printf \"%.1f\" $value }}' }}% (chegara 85%)."
+
+      - alert: HighMemoryUsage
+        expr: instance:node_memory_utilisation:ratio * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida xotira yuklanishi yuqori"
+          description: "Xotira yuklanishi {{ '{{ printf \"%.1f\" $value }}' }}% (chegara 85%)."
+
+      - alert: DiskSpaceLow
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs"} / node_filesystem_size_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida disk joyi kam"
+          description: "{{ '{{ $labels.mountpoint }}' }} {{ '{{ printf \"%.1f\" $value }}' }}% to'lgan."
+
+      - alert: DiskSpaceCritical
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs"} / node_filesystem_size_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida disk joyi kritik darajada kam"
+          description: "{{ '{{ $labels.mountpoint }}' }} {{ '{{ printf \"%.1f\" $value }}' }}% to'lgan — zudlik bilan harakat qiling."
+
+      - alert: NodeHighLoadAverage
+        expr: node_load1 / on(instance) count by(instance) (node_cpu_seconds_total{mode="idle"}) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida yuklama yuqori"
+          description: "1 daqiqalik o'rtacha yuklama CPU sonidan {{ '{{ printf \"%.2f\" $value }}' }}x barobar yuqori."
+
+      - alert: NodeOOMKillDetected
+        expr: increase(node_vmstat_oom_kill[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida OOM kill aniqlandi"
+          description: "{{ '{{ $labels.instance }}' }} serverida so'nggi 5 daqiqada OOM killer ishga tushdi."
+
+      - alert: NodeSystemdServiceFailed
+        expr: node_systemd_unit_state{state="failed"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida systemd xizmati ishlamay qoldi"
+          description: "{{ '{{ $labels.name }}' }} xizmati xato holatda."
+
+  - name: postgres_health
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida PostgreSQL ishlamayapti"
+          description: "{{ '{{ $labels.instance }}' }} serverida postgres_exporter ulanolmayapti."
+
+      - alert: PostgresTooManyConnections
+        expr: |
+          pg_stat_database_numbackends / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida PostgreSQL ulanishlar soni ko'p"
+          description: "max_connections ning {{ '{{ printf \"%.0f\" $value }}' }}% ishlatilmoqda."
+
+      - alert: PostgresDeadlocks
+        expr: increase(pg_stat_database_deadlocks[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida PostgreSQL deadlock aniqlandi"
+          description: "So'nggi 5 daqiqada {{ '{{ $value }}' }} ta deadlock aniqlandi."
+
+      - alert: PostgresLongRunningQueries
+        expr: pg_stat_activity_max_tx_duration{state!="idle"} > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida uzoq davom etayotgan so'rov"
+          description: "So'rov {{ '{{ printf \"%.0f\" $value }}' }} soniyadan beri ishlayapti."
+
+  - name: mongodb_health
+    rules:
+      - alert: MongoDBDown
+        expr: mongodb_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida MongoDB ishlamayapti"
+          description: "{{ '{{ $labels.instance }}' }} serverida mongodb_exporter ulanolmayapti."
+
+      - alert: MongoDBTooManyConnections
+        expr: mongodb_connections{state="current"} / mongodb_connections{state="available"} * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida MongoDB ulanishlar soni ko'p"
+          description: "Mavjud ulanishlarning {{ '{{ printf \"%.0f\" $value }}' }}% ishlatilmoqda."
+
+      - alert: MongoDBReplicationLag
+        expr: mongodb_mongod_replset_member_optime_date{state="PRIMARY"} - on(set) group_right mongodb_mongod_replset_member_optime_date{state="SECONDARY"} > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida MongoDB replikatsiya kechikishi"
+          description: "Kechikish {{ '{{ printf \"%.0f\" $value }}' }} soniya (chegara 10 soniya)."
+
+      - alert: MongoDBCursorsTimedOut
+        expr: increase(mongodb_mongod_metrics_cursor_timed_out_total[5m]) > 100
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ '{{ $labels.instance }}' }} serverida MongoDB kursorlari muddati tugayapti"
+          description: "So'nggi 5 daqiqada {{ '{{ printf \"%.0f\" $value }}' }} ta kursor muddati tugadi."
+
+  - name: blackbox_probes
+    rules:
+      - alert: ProbeFailed
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Probe muvaffaqiyatsiz: {{ '{{ $labels.instance }}' }}"
+          description: "{{ '{{ $labels.instance }}' }} manzili javob bermayapti."
+
+      - alert: ProbeSlowHttp
+        expr: probe_http_duration_seconds > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sekin HTTP javob: {{ '{{ $labels.instance }}' }}"
+          description: "Javob vaqti {{ '{{ printf \"%.2f\" $value }}' }} soniya (chegara 2 soniya)."
+
+      - alert: ProbeHttpStatusCode
+        expr: probe_http_status_code <= 199 or probe_http_status_code >= 400
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Noto'g'ri HTTP status: {{ '{{ $labels.instance }}' }}"
+          description: "{{ '{{ $labels.instance }}' }} dan HTTP {{ '{{ $value }}' }} qaytdi."
+
+      - alert: ProbeSslCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 14
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL sertifikat muddati tugayapti: {{ '{{ $labels.instance }}' }}"
+          description: "{{ '{{ printf \"%.0f\" ($value / 86400) }}' }} kun ichida muddati tugaydi."
+
+      - alert: ProbeSslCertExpiryImminent
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 3
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SSL sertifikat muddati kritik darajada yaqin: {{ '{{ $labels.instance }}' }}"
+          description: "{{ '{{ printf \"%.0f\" ($value / 86400) }}' }} kun ichida muddati tugaydi — zudlik bilan yangilang."
+
+  - name: prometheus_health
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        for: 0m
+        labels:
+          severity: none
+        annotations:
+          summary: "Ogohlantirishlar tizimi ishlayapti"
+          description: "Prometheus → Alertmanager → Telegram zanjiri ishlayotganini tasdiqlaydi."
+
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus konfiguratsiyasi qayta yuklanmadi"
+          description: "{{ '{{ $labels.instance }}' }} serverida oxirgi qayta yuklash muvaffaqiyatsiz tugadi."
+
+      - alert: LokiDown
+        expr: up{job="loki"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Loki ishlamayapti"
+          description: "Loki log yig'ish xizmati javob bermayapti — loglar pipeline'i buzilgan."

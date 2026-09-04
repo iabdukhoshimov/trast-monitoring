@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    grafana_version: "12.4.2"
+    grafana_checksum:
+      amd64: ""
+      arm64: ""
+    grafana_admin_password: "molecule-test-password"
+    grafana_secret_key: "molecule-test-secret-key-32chars!"
+    grafana_domain: "localhost"
+    # Skip dashboard download in molecule (needs internet + Grafana running)
+    grafana_dashboards: []
+  roles:
+    - role: grafana

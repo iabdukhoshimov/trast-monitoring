@@ -1,0 +1,31 @@
+---
+- name: Create loki system user
+  ansible.builtin.user:
+    name: "{{ loki_user }}"
+    group: "{{ loki_group }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+
+- name: Create loki directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ loki_user }}"
+    group: "{{ loki_group }}"
+    mode: "0755"
+  loop:
+    - "{{ loki_config_dir }}"
+    - "{{ loki_data_dir }}"
+    - "{{ loki_data_dir }}/chunks"
+    - "{{ loki_data_dir }}/rules"
+    - "{{ loki_data_dir }}/compactor"
+
+- name: Run install tasks
+  ansible.builtin.import_tasks: install.yml
+- name: Run configure tasks
+  ansible.builtin.import_tasks: configure.yml
+- name: Run service tasks
+  ansible.builtin.import_tasks: service.yml
+- name: Run firewall tasks
+  ansible.builtin.import_tasks: firewall.yml

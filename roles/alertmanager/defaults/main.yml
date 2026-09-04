@@ -1,0 +1,16 @@
+---
+alertmanager_version: "0.31.1"
+alertmanager_port: 9093
+alertmanager_user: "alertmanager"
+alertmanager_group: "alertmanager"
+alertmanager_install_dir: "/usr/local/bin"
+alertmanager_config_dir: "/etc/alertmanager"
+alertmanager_data_dir: "/var/lib/alertmanager"
+alertmanager_checksum: {}
+
+alertmanager_group_wait: "30s"
+alertmanager_group_interval: "5m"
+alertmanager_repeat_interval: "4h"
+
+alertmanager_telegram_bot_token: ""
+alertmanager_telegram_chat_id: ""

@@ -1,0 +1,7 @@
+---
+env: production
+
+# IP or hostname of the monitoring server.
+# Used by Alloy on target servers to push logs to Loki.
+# CHANGE THIS to your actual monitoring server address.
+monitoring_server_host: "10.0.0.1"

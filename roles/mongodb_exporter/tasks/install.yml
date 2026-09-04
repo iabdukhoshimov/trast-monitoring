@@ -1,0 +1,64 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set mongodb_exporter download vars
+  ansible.builtin.set_fact:
+    _me_archive: "mongodb_exporter-{{ mongodb_exporter_version }}.linux-{{ _arch }}.tar.gz"
+    _me_url: "https://github.com/percona/mongodb_exporter/releases/download/v{{ mongodb_exporter_version }}"
+    _me_extract_dir: "/tmp/mongodb_exporter-{{ mongodb_exporter_version }}.linux-{{ _arch }}"
+
+- name: Check installed mongodb_exporter version
+  ansible.builtin.command: "{{ mongodb_exporter_install_dir }}/mongodb_exporter --version"
+  register: _me_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install mongodb_exporter
+  when: mongodb_exporter_version not in ((_me_installed.stdout | default('')) + (_me_installed.stderr | default('')))
+  block:
+    - name: Download mongodb_exporter (no checksum — fill in group_vars)
+      ansible.builtin.get_url:
+        url: "{{ _me_url }}/{{ _me_archive }}"
+        dest: "/tmp/{{ _me_archive }}"
+        mode: "0644"
+      when: >-
+        mongodb_exporter_checksum[_arch] | default('')
+        in ('', 'PLACEHOLDER')
+
+    - name: Download mongodb_exporter (with checksum)
+      ansible.builtin.get_url:
+        url: "{{ _me_url }}/{{ _me_archive }}"
+        dest: "/tmp/{{ _me_archive }}"
+        checksum: "sha256:{{ mongodb_exporter_checksum[_arch] }}"
+        mode: "0644"
+      when: >-
+        mongodb_exporter_checksum[_arch] | default('')
+        not in ('', 'PLACEHOLDER')
+
+    - name: Extract mongodb_exporter
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _me_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install mongodb_exporter binary
+      ansible.builtin.copy:
+        # Percona tarball extracts to mongodb_exporter-VERSION.linux-ARCH/
+        # If your release has a different layout, adjust this path
+        src: "{{ _me_extract_dir }}/mongodb_exporter"
+        dest: "{{ mongodb_exporter_install_dir }}/mongodb_exporter"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart mongodb_exporter
+
+    - name: Remove mongodb_exporter archive and extracted dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _me_archive }}"
+        - "{{ _me_extract_dir }}"

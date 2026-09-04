@@ -1,0 +1,54 @@
+---
+- name: Detect architecture
+  ansible.builtin.set_fact:
+    _arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Set alloy download vars
+  ansible.builtin.set_fact:
+    _alloy_archive: "alloy-linux-{{ _arch }}.zip"
+    _alloy_url: "https://github.com/grafana/alloy/releases/download/v{{ alloy_version }}"
+
+- name: Check installed alloy version
+  ansible.builtin.command: "{{ alloy_install_dir }}/alloy --version"
+  register: _alloy_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install alloy
+  when: alloy_version not in ((_alloy_installed.stdout | default('')) + (_alloy_installed.stderr | default('')))
+  block:
+    - name: Download alloy
+      ansible.builtin.get_url:
+        url: "{{ _alloy_url }}/{{ _alloy_archive }}"
+        dest: "/tmp/{{ _alloy_archive }}"
+        checksum: "sha256:{{ alloy_checksum[_arch] }}"
+        mode: "0644"
+
+    - name: Install unzip (required to extract Alloy)
+      ansible.builtin.package:
+        name: unzip
+        state: present
+
+    - name: Extract alloy binary
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ _alloy_archive }}"
+        dest: /tmp
+        remote_src: true
+
+    - name: Install alloy binary
+      ansible.builtin.copy:
+        src: "/tmp/alloy-linux-{{ _arch }}"
+        dest: "{{ alloy_install_dir }}/alloy"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart alloy
+
+    - name: Remove alloy archive and extracted binary
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/{{ _alloy_archive }}"
+        - "/tmp/alloy-linux-{{ _arch }}"

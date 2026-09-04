@@ -1,0 +1,11 @@
+---
+# ── MongoDB Exporter ──────────────────────────────────────────────────────────
+mongodb_exporter_version: "0.40.0"
+# SHA256 checksums — get from:
+# https://github.com/percona/mongodb_exporter/releases/tag/v0.40.0
+mongodb_exporter_checksum:
+  amd64: "PLACEHOLDER_get_from_github_releases"
+  arm64: "PLACEHOLDER_get_from_github_releases"
+
+# MongoDB connection URI — sourced from vault; override per-host in host_vars if needed
+mongodb_exporter_uri: "{{ vault_mongodb_uri }}"

@@ -1,0 +1,21 @@
+---
+# Deploys exporters and log agent on all monitored target servers.
+- name: Deploy node_exporter on target servers
+  hosts: targets
+  roles:
+    - node_exporter
+
+- name: Deploy postgres_exporter on PostgreSQL hosts
+  hosts: postgres_hosts
+  roles:
+    - postgres_exporter
+
+- name: Deploy mongodb_exporter on MongoDB hosts
+  hosts: mongo_hosts
+  roles:
+    - mongodb_exporter
+
+- name: Deploy Alloy log agent on target servers
+  hosts: targets
+  roles:
+    - alloy

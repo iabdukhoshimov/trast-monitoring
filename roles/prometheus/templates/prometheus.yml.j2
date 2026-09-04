@@ -1,0 +1,148 @@
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+  evaluation_interval: {{ prometheus_evaluation_interval }}
+  external_labels:
+    cluster: {{ prometheus_cluster_name }}
+    env: {{ env }}
+
+rule_files:
+  - {{ prometheus_rules_dir }}/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - localhost:9093
+
+scrape_configs:
+
+  # ── Self-monitoring ───────────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:{{ prometheus_port }}
+
+  - job_name: alertmanager
+    static_configs:
+      - targets:
+          - localhost:9093
+
+  - job_name: loki
+    static_configs:
+      - targets:
+          - localhost:3100
+
+  # ── Node Exporter — monitoring server + all target servers ────────────────
+  - job_name: node_exporter
+    static_configs:
+      - targets:
+          - localhost:{{ node_exporter_port }}
+        labels:
+          instance: "{{ inventory_hostname }}"
+{% for host in groups['targets'] | default([]) %}
+      - targets:
+          - "{{ hostvars[host]['ansible_host'] | default(host) }}:{{ node_exporter_port }}"
+        labels:
+          instance: "{{ host }}"
+{% endfor %}
+
+{% if groups['postgres_hosts'] | default([]) | length > 0 %}
+  # ── PostgreSQL Exporter ───────────────────────────────────────────────────
+  - job_name: postgres_exporter
+    static_configs:
+{% for host in groups['postgres_hosts'] | default([]) %}
+      - targets:
+          - "{{ hostvars[host]['ansible_host'] | default(host) }}:{{ postgres_exporter_port }}"
+        labels:
+          instance: "{{ host }}"
+{% endfor %}
+
+{% endif %}
+{% if groups['mongo_hosts'] | default([]) | length > 0 %}
+  # ── MongoDB Exporter ──────────────────────────────────────────────────────
+  - job_name: mongodb_exporter
+    static_configs:
+{% for host in groups['mongo_hosts'] | default([]) %}
+      - targets:
+          - "{{ hostvars[host]['ansible_host'] | default(host) }}:{{ mongodb_exporter_port }}"
+        labels:
+          instance: "{{ host }}"
+{% endfor %}
+
+{% endif %}
+  # ── Alloy agents ─────────────────────────────────────────────────────────
+  - job_name: alloy
+    static_configs:
+{% for host in groups['targets'] | default([]) %}
+      - targets:
+          - "{{ hostvars[host]['ansible_host'] | default(host) }}:12345"
+        labels:
+          instance: "{{ host }}"
+{% endfor %}
+
+{% if prometheus_blackbox_http_targets | default([]) | length > 0 %}
+  # ── Blackbox HTTP probes ──────────────────────────────────────────────────
+  - job_name: blackbox_http
+    metrics_path: /probe
+    static_configs:
+{% for t in prometheus_blackbox_http_targets | default([]) %}
+      - targets:
+          - "{{ t.url }}"
+        labels:
+          name: "{{ t.name }}"
+          module: "{{ t.module }}"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [name]
+        target_label: instance
+      - source_labels: [module]
+        target_label: __param_module
+      - target_label: __address__
+        replacement: "localhost:9115"
+{% endif %}
+
+{% if prometheus_blackbox_tcp_targets | default([]) | length > 0 %}
+  # ── Blackbox TCP probes ───────────────────────────────────────────────────
+  - job_name: blackbox_tcp
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+{% for t in prometheus_blackbox_tcp_targets | default([]) %}
+      - targets:
+          - "{{ t.host }}"
+        labels:
+          name: "{{ t.name }}"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [name]
+        target_label: instance
+      - target_label: __address__
+        replacement: "localhost:9115"
+{% endif %}
+
+{% if prometheus_blackbox_icmp_targets | default([]) | length > 0 %}
+  # ── Blackbox ICMP probes ──────────────────────────────────────────────────
+  - job_name: blackbox_icmp
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+{% for t in prometheus_blackbox_icmp_targets | default([]) %}
+      - targets:
+          - "{{ t.host }}"
+        labels:
+          name: "{{ t.name }}"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [name]
+        target_label: instance
+      - target_label: __address__
+        replacement: "localhost:9115"
+{% endif %}

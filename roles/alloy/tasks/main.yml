@@ -1,0 +1,30 @@
+---
+- name: Create alloy system user
+  ansible.builtin.user:
+    name: "{{ alloy_user }}"
+    group: "{{ alloy_group }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+    groups: "{{ 'docker' if alloy_log_source == 'docker' else '' }}"
+    append: true
+
+- name: Create alloy directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ alloy_user }}"
+    group: "{{ alloy_group }}"
+    mode: "0755"
+  loop:
+    - "{{ alloy_config_dir }}"
+    - "{{ alloy_data_dir }}"
+
+- name: Run install tasks
+  ansible.builtin.import_tasks: install.yml
+- name: Run configure tasks
+  ansible.builtin.import_tasks: configure.yml
+- name: Run service tasks
+  ansible.builtin.import_tasks: service.yml
+- name: Run firewall tasks
+  ansible.builtin.import_tasks: firewall.yml

@@ -1,0 +1,17 @@
+---
+- name: Open prometheus port (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ prometheus_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: ansible_facts.services['firewalld.service'] is defined
+  ignore_errors: true
+
+- name: Open prometheus port (ufw)
+  community.general.ufw:
+    rule: allow
+    port: "{{ prometheus_port }}"
+    proto: tcp
+  when: ansible_facts.packages['ufw'] is defined
+  ignore_errors: true
