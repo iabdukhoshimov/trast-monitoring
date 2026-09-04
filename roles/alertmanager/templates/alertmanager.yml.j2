@@ -16,23 +16,9 @@ route:
 
 receivers:
   - name: telegram
-    telegram_configs:
-      - bot_token: "{{ alertmanager_telegram_bot_token }}"
-        chat_id: {{ alertmanager_telegram_chat_id }}
-        parse_mode: HTML
+    webhook_configs:
+      - url: "http://127.0.0.1:{{ alertmanager_webhook_port }}/alert"
         send_resolved: true
-        message: |
-          {% raw -%}
-          {{ if eq .Status "firing" }}🔴 <b>FIRING</b>{{ else }}✅ <b>RESOLVED</b>{{ end }}
-
-          {{ range .Alerts }}
-          <b>Alert:</b> {{ .Labels.alertname }}
-          <b>Instance:</b> {{ if .Labels.instance }}{{ .Labels.instance }}{{ else }}n/a{{ end }}
-          <b>Severity:</b> {{ .Labels.severity }}
-          <b>Summary:</b> {{ .Annotations.summary }}
-          {{ if .Annotations.description }}<b>Details:</b> {{ .Annotations.description }}{{ end }}
-          {{ end }}
-          {%- endraw %}
 
   - name: blackhole
 

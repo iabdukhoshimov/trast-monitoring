@@ -13,8 +13,6 @@ alertmanager_version: "0.31.1"
 alertmanager_checksum:
   amd64: "35191cbd9d4f8162458b78dd7e93990cccd246044d9a6f788adb1c66ac3ea07b"
   arm64: "266dda88b64318c27847ef9af4ff450fc178c827550a8039420c5ca8657a4a8b"
-alertmanager_telegram_bot_token: "{{ vault_telegram_bot_token }}"
-alertmanager_telegram_chat_id: "{{ vault_telegram_chat_id }}"
 
 # ── Loki ──────────────────────────────────────────────────────────────────────
 loki_version: "3.7.1"
