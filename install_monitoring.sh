@@ -14,7 +14,7 @@ set -euo pipefail
 # ║  CONFIGURATION — edit this section before running                          ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
-MONITORING_HOST="192.168.88.11"      # This server's IP (used as Prometheus label)
+MONITORING_HOST="10.0.0.1"          # This server's IP (used as Prometheus label)
 CLUSTER_NAME="production"
 RETENTION="30d"
 SCRAPE_INTERVAL="15s"
@@ -40,8 +40,8 @@ ALLOY_PORT=12345
 
 # Grafana
 GRAFANA_ADMIN_USER="admin"
-GRAFANA_ADMIN_PASSWORD="Trast2026!"
-GRAFANA_SECRET_KEY="ApSySlMn+p/BNRWTGu3/rkuXmPPUQAxI/fHJeQhHGGY="
+GRAFANA_ADMIN_PASSWORD="CHANGE_ME"
+GRAFANA_SECRET_KEY="CHANGE_ME_min_32_chars_secret_key_here!"
 GRAFANA_DOMAIN="localhost"
 GRAFANA_PORT=3000
 
@@ -968,25 +968,31 @@ _import_grafana_dashboards() {
       "https://grafana.com/api/dashboards/${dash_id}/revisions/${dash_rev}/download" \
       -o "/tmp/dash_${dash_id}.json"
 
-    local body
-    body=$(cat "/tmp/dash_${dash_id}.json")
+    local payload="/tmp/dash_${dash_id}_payload.json"
+    # Write payload to file — avoids "Argument list too long" for large dashboards
+    python3 -c "
+import json, sys
+dash = json.load(open('/tmp/dash_${dash_id}.json'))
+payload = {
+    'dashboard': dash,
+    'overwrite': True,
+    'inputs': [
+        {'name': 'DS_PROMETHEUS',              'type': 'datasource', 'pluginId': 'prometheus', 'value': 'prometheus'},
+        {'name': 'DS_LOKI',                    'type': 'datasource', 'pluginId': 'loki',       'value': 'loki'},
+        {'name': 'DS_GRAFANA_LOKI_DATASOURCE', 'type': 'datasource', 'pluginId': 'loki',       'value': 'loki'},
+    ],
+    'folderId': 0,
+}
+json.dump(payload, open('${payload}', 'w'))
+"
 
     curl -sf \
       -u "${GRAFANA_ADMIN_USER}:${GRAFANA_ADMIN_PASSWORD}" \
       -H "Content-Type: application/json" \
       "http://localhost:${GRAFANA_PORT}/api/dashboards/import" \
-      -d "{
-        \"dashboard\": ${body},
-        \"overwrite\": true,
-        \"inputs\": [
-          {\"name\":\"DS_PROMETHEUS\",             \"type\":\"datasource\",\"pluginId\":\"prometheus\",\"value\":\"prometheus\"},
-          {\"name\":\"DS_LOKI\",                   \"type\":\"datasource\",\"pluginId\":\"loki\",      \"value\":\"loki\"},
-          {\"name\":\"DS_GRAFANA_LOKI_DATASOURCE\",\"type\":\"datasource\",\"pluginId\":\"loki\",      \"value\":\"loki\"}
-        ],
-        \"folderId\": 0
-      }" > /dev/null
+      -d "@${payload}" > /dev/null
 
-    rm -f "/tmp/dash_${dash_id}.json"
+    rm -f "/tmp/dash_${dash_id}.json" "${payload}"
     log "  Dashboard ${dash_id} imported"
   done
 }
