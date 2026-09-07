@@ -189,7 +189,7 @@ groups:
           severity: warning
         annotations:
           summary: "SSL sertifikat muddati tugayapti: {{ '{{ $labels.instance }}' }}"
-          description: "{{ '{{ printf \"%.0f\" ($value / 86400) }}' }} kun ichida muddati tugaydi."
+          description: "{{ '{{ humanizeDuration $value }}' }} ichida SSL sertifikat muddati tugaydi."
 
       - alert: ProbeSslCertExpiryImminent
         expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 3
@@ -198,7 +198,7 @@ groups:
           severity: critical
         annotations:
           summary: "SSL sertifikat muddati kritik darajada yaqin: {{ '{{ $labels.instance }}' }}"
-          description: "{{ '{{ printf \"%.0f\" ($value / 86400) }}' }} kun ichida muddati tugaydi — zudlik bilan yangilang."
+          description: "{{ '{{ humanizeDuration $value }}' }} ichida SSL sertifikat muddati tugaydi — zudlik bilan yangilang."
 
   - name: prometheus_health
     rules:
