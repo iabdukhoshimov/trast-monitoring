@@ -354,7 +354,7 @@ EOF
         replacement: "localhost:9115"
 EOF
 
-  promtool check config "$tmp" || die "prometheus.yml validation failed"
+  /usr/local/bin/promtool check config "$tmp" || die "prometheus.yml validation failed"
   install -o prometheus -g prometheus -m 0644 "$tmp" /etc/prometheus/prometheus.yml
   rm -f "$tmp"
 }
@@ -583,7 +583,7 @@ groups:
           description: "Loki log yig'ish xizmati javob bermayapti — loglar pipeline'i buzilgan."
 EOF
 
-  promtool check rules "$tmp" || die "alerting_rules.yml validation failed"
+  /usr/local/bin/promtool check rules "$tmp" || die "alerting_rules.yml validation failed"
   install -o prometheus -g prometheus -m 0644 "$tmp" /etc/prometheus/rules/alerting_rules.yml
   rm -f "$tmp"
 }
@@ -612,7 +612,7 @@ groups:
         expr: rate(node_network_transmit_bytes_total{device!="lo"}[5m])
 EOF
 
-  promtool check rules "$tmp" || die "recording_rules.yml validation failed"
+  /usr/local/bin/promtool check rules "$tmp" || die "recording_rules.yml validation failed"
   install -o prometheus -g prometheus -m 0644 "$tmp" /etc/prometheus/rules/recording_rules.yml
   rm -f "$tmp"
 }
