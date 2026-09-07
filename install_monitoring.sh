@@ -14,27 +14,19 @@ set -euo pipefail
 # ║  CONFIGURATION — edit this section before running                          ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
-MONITORING_HOST="10.0.0.1"          # This server's IP (used as Prometheus label)
+MONITORING_HOST="192.168.88.11"      # This server's IP (used as Prometheus label)
 CLUSTER_NAME="production"
 RETENTION="30d"
 SCRAPE_INTERVAL="15s"
 
 # All target servers monitored by this stack.
 # Must match what you put in install_exporters.sh MONITORING_SERVER_IP.
-TARGET_HOSTS=(
-  "server1.example.com"
-  "server2.example.com"
-  "server3.example.com"
-)
+# Add app server IPs here as you deploy exporters on them.
+TARGET_HOSTS=()
 
 # Subsets of TARGET_HOSTS running those databases.
-POSTGRES_HOSTS=(
-  "server1.example.com"
-  "server3.example.com"
-)
-MONGO_HOSTS=(
-  "server2.example.com"
-)
+POSTGRES_HOSTS=()
+MONGO_HOSTS=()
 
 # Port numbers — must match install_exporters.sh defaults.
 NODE_EXPORTER_PORT=9100
@@ -48,8 +40,8 @@ ALLOY_PORT=12345
 
 # Grafana
 GRAFANA_ADMIN_USER="admin"
-GRAFANA_ADMIN_PASSWORD="CHANGE_ME"
-GRAFANA_SECRET_KEY="CHANGE_ME_min_32_chars_secret_key_here!"
+GRAFANA_ADMIN_PASSWORD="Trast2026!"
+GRAFANA_SECRET_KEY="ApSySlMn+p/BNRWTGu3/rkuXmPPUQAxI/fHJeQhHGGY="
 GRAFANA_DOMAIN="localhost"
 GRAFANA_PORT=3000
 
