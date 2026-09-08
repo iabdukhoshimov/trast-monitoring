@@ -16,7 +16,7 @@ set -euo pipefail
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 # IP/hostname of the monitoring server (where install_monitoring.sh was run)
-MONITORING_SERVER_IP="10.0.0.1"
+MONITORING_SERVER_IP="192.168.88.11"
 
 # Log shipping mode for Alloy:
 #   "docker" — tail container logs via Docker socket
