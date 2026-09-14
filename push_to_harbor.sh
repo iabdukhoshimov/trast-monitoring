@@ -14,7 +14,7 @@ set -euo pipefail
 # ║  CONFIGURATION                                                             ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 HARBOR_URL="harbor.trustbank.uz"
-HARBOR_PROJECT="monitoring"
+HARBOR_PROJECT="trastpay-v2"
 HARBOR_USER="${HARBOR_USER:-harbor.trustbank.uz}"
 
 ARCHES=("amd64" "arm64")
