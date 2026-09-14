@@ -24,7 +24,7 @@ MONITORING_SERVER_IP="192.168.88.11"
 
 # Harbor registry — set to enable Harbor mode (requires docker on target server)
 # Leave empty to download directly from GitHub
-HARBOR_URL=""          # e.g. harbor.company.com
+HARBOR_URL="harbor.trustbank.uz"
 HARBOR_PROJECT="monitoring"
 
 # Log shipping mode for Alloy:

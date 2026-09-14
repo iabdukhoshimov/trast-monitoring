@@ -13,9 +13,9 @@ set -euo pipefail
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  CONFIGURATION                                                             ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-HARBOR_URL="your-harbor.com"         # e.g. harbor.company.com
-HARBOR_PROJECT="monitoring"          # Harbor project name
-HARBOR_USER="${HARBOR_USER:-admin}"  # or set HARBOR_USER env var
+HARBOR_URL="harbor.trustbank.uz"
+HARBOR_PROJECT="monitoring"
+HARBOR_USER="${HARBOR_USER:-admin}"  # override: HARBOR_USER=myuser bash push_to_harbor.sh
 
 ARCHES=("amd64" "arm64")
 
@@ -36,10 +36,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$HARBOR_URL" == "your-harbor.com" ]] && {
-  echo "[✗] Set HARBOR_URL at top of script (or pass --harbor your-harbor.com)"
-  exit 1
-}
+# Support non-interactive login via env var (never hardcode in script)
+# Usage: HARBOR_PASSWORD=xxx bash push_to_harbor.sh
+if [[ -n "${HARBOR_PASSWORD:-}" ]]; then
+  echo "$HARBOR_PASSWORD" | docker login "$HARBOR_URL" -u "$HARBOR_USER" --password-stdin
+fi
 
 TMPDIR_WORK=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_WORK"' EXIT
@@ -90,7 +91,9 @@ EOF
 
 # ── Login ──────────────────────────────────────────────────────────────────────
 step "Harbor login"
-docker login "$HARBOR_URL" -u "$HARBOR_USER" || die "Harbor login failed"
+if [[ -z "${HARBOR_PASSWORD:-}" ]]; then
+  docker login "$HARBOR_URL" -u "$HARBOR_USER" || die "Harbor login failed"
+fi
 
 # ── Download + push ────────────────────────────────────────────────────────────
 for ARCH in "${ARCHES[@]}"; do
