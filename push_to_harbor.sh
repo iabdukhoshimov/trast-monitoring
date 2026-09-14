@@ -15,7 +15,7 @@ set -euo pipefail
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 HARBOR_URL="harbor.trustbank.uz"
 HARBOR_PROJECT="trastpay-v2"
-HARBOR_USER="${HARBOR_USER:-harbor.trustbank.uz}"
+HARBOR_USER="${HARBOR_USER:-trastbank\$ci-cd-robot}"
 
 ARCHES=("amd64" "arm64")
 
