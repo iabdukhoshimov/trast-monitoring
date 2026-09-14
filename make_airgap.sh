@@ -1,70 +1,142 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# install_exporters.sh
-# Installs exporters on a monitored target server.
-# Always installs: Node Exporter + Alloy (log shipping)
-# Auto-detects:    postgres_exporter (if PostgreSQL found)
-#                  mongodb_exporter  (if MongoDB found)
+# make_airgap.sh
+# Run on an internet-connected machine to produce install_exporters_airgap.sh
+# with all binaries embedded as gzip+base64 blobs.
 #
-# Install modes (auto-detected, priority order):
-#   1. Harbor  — HARBOR_URL set + docker available → pull from internal registry
-#   2. Internet — HARBOR_URL empty → download from GitHub
+# Usage:
+#   bash make_airgap.sh              # amd64 only (default)
+#   bash make_airgap.sh --arch all   # amd64 + arm64
+# ==============================================================================
+set -euo pipefail
+
+ARCHES=("amd64")
+OUTPUT="install_exporters_airgap.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --arch) [[ "$2" == "all" ]] && ARCHES=(amd64 arm64) || ARCHES=("$2"); shift 2 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+
+# Keep in sync with install_exporters.sh
+NODE_EXPORTER_VERSION="1.11.0"
+ALLOY_VERSION="1.16.1"
+POSTGRES_EXPORTER_VERSION="0.16.0"
+MONGODB_EXPORTER_VERSION="0.40.0"
+
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; BOLD='\033[1m'; NC='\033[0m'
+log()  { echo -e "${GREEN}[+]${NC} $*"; }
+warn() { echo -e "\033[1;33m[!]${NC} $*"; }
+die()  { echo -e "${RED}[✗]${NC} $*" >&2; exit 1; }
+
+command -v curl    &>/dev/null || die "curl required"
+command -v gzip    &>/dev/null || die "gzip required"
+command -v base64  &>/dev/null || die "base64 required"
+command -v tar     &>/dev/null || die "tar required"
+command -v unzip   &>/dev/null || die "unzip required"
+
+fetch() {
+  local url=$1 dest=$2
+  log "Downloading $(basename "$dest")..."
+  curl -fsSL --retry 3 --retry-delay 2 "$url" -o "$dest"
+}
+
+# gzip compress then base64 encode; prints result to stdout
+encode() { gzip -c "$1" | base64 -w0; }
+
+declare -A BLOB
+
+for ARCH in "${ARCHES[@]}"; do
+  log "━━━ arch: ${ARCH} ━━━"
+
+  # ── node_exporter ────────────────────────────────────────────────────────────
+  NE_ARCH="node_exporter-${NODE_EXPORTER_VERSION}.linux-${ARCH}.tar.gz"
+  fetch "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/${NE_ARCH}" \
+        "$TMPDIR/$NE_ARCH"
+  tar -xzf "$TMPDIR/$NE_ARCH" -C "$TMPDIR"
+  BLOB["NODE_EXPORTER_${ARCH^^}"]=$(encode "$TMPDIR/node_exporter-${NODE_EXPORTER_VERSION}.linux-${ARCH}/node_exporter")
+  log "node_exporter ${ARCH}: $(echo "${BLOB["NODE_EXPORTER_${ARCH^^}"]}" | wc -c | numfmt --to=iec) base64"
+
+  # ── alloy ────────────────────────────────────────────────────────────────────
+  ALLOY_ARCH="alloy-linux-${ARCH}.zip"
+  fetch "https://github.com/grafana/alloy/releases/download/v${ALLOY_VERSION}/${ALLOY_ARCH}" \
+        "$TMPDIR/$ALLOY_ARCH"
+  unzip -o "$TMPDIR/$ALLOY_ARCH" "alloy-linux-${ARCH}" -d "$TMPDIR" >/dev/null
+  BLOB["ALLOY_${ARCH^^}"]=$(encode "$TMPDIR/alloy-linux-${ARCH}")
+  log "alloy ${ARCH}: $(echo "${BLOB["ALLOY_${ARCH^^}"]}" | wc -c | numfmt --to=iec) base64"
+
+  # ── postgres_exporter ────────────────────────────────────────────────────────
+  PG_ARCH="postgres_exporter-${POSTGRES_EXPORTER_VERSION}.linux-${ARCH}.tar.gz"
+  fetch "https://github.com/prometheus-community/postgres_exporter/releases/download/v${POSTGRES_EXPORTER_VERSION}/${PG_ARCH}" \
+        "$TMPDIR/$PG_ARCH"
+  tar -xzf "$TMPDIR/$PG_ARCH" -C "$TMPDIR"
+  BLOB["POSTGRES_EXPORTER_${ARCH^^}"]=$(encode "$TMPDIR/postgres_exporter-${POSTGRES_EXPORTER_VERSION}.linux-${ARCH}/postgres_exporter")
+  log "postgres_exporter ${ARCH}: $(echo "${BLOB["POSTGRES_EXPORTER_${ARCH^^}"]}" | wc -c | numfmt --to=iec) base64"
+
+  # ── mongodb_exporter (optional) ──────────────────────────────────────────────
+  MG_ARCH="mongodb_exporter-${MONGODB_EXPORTER_VERSION}.linux-${ARCH}.tar.gz"
+  if curl -fsSL --retry 2 \
+       "https://github.com/percona/mongodb_exporter/releases/download/v${MONGODB_EXPORTER_VERSION}/${MG_ARCH}" \
+       -o "$TMPDIR/$MG_ARCH" 2>/dev/null; then
+    tar -xzf "$TMPDIR/$MG_ARCH" -C "$TMPDIR"
+    BLOB["MONGODB_EXPORTER_${ARCH^^}"]=$(encode "$TMPDIR/mongodb_exporter")
+    log "mongodb_exporter ${ARCH}: $(echo "${BLOB["MONGODB_EXPORTER_${ARCH^^}"]}" | wc -c | numfmt --to=iec) base64"
+  else
+    warn "mongodb_exporter download failed — will be skipped in airgap script"
+    BLOB["MONGODB_EXPORTER_${ARCH^^}"]=""
+  fi
+done
+
+# Fill empty arch blobs so the generated script has all vars defined
+for BINARY in NODE_EXPORTER ALLOY POSTGRES_EXPORTER MONGODB_EXPORTER; do
+  for ARCH in AMD64 ARM64; do
+    : "${BLOB["${BINARY}_${ARCH}"]=""}"
+  done
+done
+
+log "━━━ Generating ${OUTPUT} ━━━"
+
+cat > "$OUTPUT" << SCRIPT_HEAD
+#!/usr/bin/env bash
+# ==============================================================================
+# install_exporters_airgap.sh  —  AUTO-GENERATED by make_airgap.sh
+# Self-contained: all binaries embedded as gzip+base64 blobs.
+# No internet access required.
 #
-# Target OS: Rocky Linux / RHEL / AlmaLinux / Ubuntu / Debian
-# Run as root: sudo bash install_exporters.sh
+# Generated: $(date -u '+%Y-%m-%d %H:%M UTC')
+# Versions:  node_exporter=${NODE_EXPORTER_VERSION}  alloy=${ALLOY_VERSION}
+#            postgres_exporter=${POSTGRES_EXPORTER_VERSION}  mongodb_exporter=${MONGODB_EXPORTER_VERSION}
 # ==============================================================================
 set -euo pipefail
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  CONFIGURATION — edit before running                                       ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-
-# IP/hostname of the monitoring server (where install_monitoring.sh was run)
 MONITORING_SERVER_IP="192.168.88.11"
-
-# Harbor registry — set to enable Harbor mode (requires docker on target server)
-# Leave empty to download directly from GitHub
-HARBOR_URL=""          # e.g. harbor.company.com
-HARBOR_PROJECT="monitoring"
-
-# Log shipping mode for Alloy:
-#   "docker" — tail container logs via Docker socket
-#   "file"   — tail log files from FILE_LOG_PATHS
 LOG_SOURCE="docker"
-
-# Paths to tail when LOG_SOURCE=file
 FILE_LOG_PATHS=(
   "/var/log/*.log"
   "/var/log/app/*.log"
 )
-
-# PostgreSQL DSN for postgres_exporter (used if PostgreSQL is detected).
-# Create a dedicated read-only user:
-#   CREATE USER postgres_exporter WITH PASSWORD 'secret';
-#   GRANT pg_monitor TO postgres_exporter;
 POSTGRES_DSN="postgresql://postgres_exporter:CHANGE_ME@localhost:5432/postgres?sslmode=disable"
-
-# MongoDB URI for mongodb_exporter (used if MongoDB is detected).
 MONGODB_URI="mongodb://localhost:27017/"
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  VERSIONS — keep in sync with install_monitoring.sh                        ║
+# ║  EMBEDDED BINARIES (gzip + base64)                                         ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-NODE_EXPORTER_VERSION="1.11.0"
-ALLOY_VERSION="1.16.1"
-POSTGRES_EXPORTER_VERSION="0.16.0"
-MONGODB_EXPORTER_VERSION="0.40.0"
+SCRIPT_HEAD
 
-NODE_EXPORTER_CHECKSUM_AMD64="4f8fbd23b8380b8fb720b125fb9029de261dc5fcd68bfe81ae010c0d32f5f6c3"
-NODE_EXPORTER_CHECKSUM_ARM64="cd09ceffd418e91c25365ad008b2baac88fa1743632b71c620829d3d5596b141"
-ALLOY_CHECKSUM_AMD64="68fa7b1c75dc701f5bdc5242ce043ddb52f538ede493b7e9fc73226800fbfd3b"
-ALLOY_CHECKSUM_ARM64="35d6fbcbbe93e9aab102f1e9c1f853d89730f5eca75afff0b81460eed570c4a5"
-POSTGRES_EXPORTER_CHECKSUM_AMD64="5763bd10108e9739e7857377deeb43d2addf07c4c4f4d4c882a08847c15bfd61"
-POSTGRES_EXPORTER_CHECKSUM_ARM64="d88c7d663e4d6a914bca71d2c4a684225e2336c20c62cdce215b2970d2a49b72"
-# Get MongoDB exporter checksums from:
-# https://github.com/percona/mongodb_exporter/releases/tag/v0.40.0
-MONGODB_EXPORTER_CHECKSUM_AMD64="PLACEHOLDER_get_from_github_releases"
-MONGODB_EXPORTER_CHECKSUM_ARM64="PLACEHOLDER_get_from_github_releases"
+# Write blob variables
+for KEY in "${!BLOB[@]}"; do
+  printf 'BLOB_%s=%s\n' "$KEY" "'${BLOB[$KEY]}'" >> "$OUTPUT"
+done
+
+cat >> "$OUTPUT" << 'SCRIPT_BODY'
 
 # ══════════════════════════════════════════════════════════════════════════════
 # INTERNALS
@@ -81,55 +153,27 @@ step() { echo -e "\n${BOLD}━━━━━━━━━━━━━━━━━�
 
 [[ $EUID -eq 0 ]] || die "Run as root: sudo bash $0"
 
-# ── Pre-flight checks ─────────────────────────────────────────────────────────
 preflight() {
   local missing=()
-  for cmd in curl tar sha256sum systemctl useradd install ss; do
+  for cmd in gzip tar sha256sum systemctl useradd install ss; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
   done
   [[ ${#missing[@]} -eq 0 ]] || die "Missing required tools: ${missing[*]}"
   log "Pre-flight OK"
 }
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
 create_user() {
   id "$1" &>/dev/null || useradd --system --no-create-home --shell /sbin/nologin "$1"
 }
 
-download_verify() {
-  local url=$1 dest=$2 expected=$3
-  [[ "$expected" != PLACEHOLDER* ]] || \
-    die "Checksum not set for $(basename "$dest"). Get it from the GitHub releases page."
-  log "Downloading $(basename "$dest")..."
-  curl -fsSL --retry 3 --retry-delay 2 "$url" -o "$dest"
-  local actual
-  actual=$(sha256sum "$dest" | awk '{print $1}')
-  [[ "$actual" == "$expected" ]] || \
-    die "Checksum mismatch for $(basename "$dest")\n  expected: $expected\n  got:      $actual"
-}
-
-# Pull binary from Harbor via docker create + docker cp
-install_from_harbor() {
-  local image_name=$1  # e.g. node-exporter
-  local version=$2     # e.g. 1.11.0
-  local bin_name=$3    # binary filename inside image e.g. node_exporter
-  local dest=$4        # destination path e.g. /usr/local/bin/node_exporter
-
-  local tag="${HARBOR_URL}/${HARBOR_PROJECT}/${image_name}:${version}-${ARCH}"
-  log "Pulling ${tag}..."
-  docker pull "$tag"
-  local cid
-  cid=$(docker create "$tag")
-  docker cp "${cid}:/${bin_name}" "$dest"
-  docker rm "$cid" &>/dev/null
-  docker rmi "$tag" &>/dev/null || true
+# Decode gzip+base64 blob to destination path
+extract_embedded() {
+  local blob_var=$1 dest=$2
+  local blob="${!blob_var}"
+  [[ -n "$blob" ]] || die "Embedded binary '${blob_var}' is empty — regenerate with make_airgap.sh"
+  log "Extracting $(basename "$dest") from embedded blob..."
+  echo "$blob" | base64 -d | gzip -d > "$dest"
   chmod 0755 "$dest"
-  log "Installed $(basename "$dest") from Harbor"
-}
-
-use_harbor() {
-  [[ -n "$HARBOR_URL" ]] && command -v docker &>/dev/null
 }
 
 open_port() {
@@ -152,7 +196,6 @@ already_installed() {
   "$binary" --version 2>&1 | grep -qF "$version" 2>/dev/null
 }
 
-# Detect database presence by checking: active systemd service OR open port
 has_postgres() {
   systemctl is-active --quiet postgresql      2>/dev/null && return 0
   systemctl is-active --quiet "postgresql-*" 2>/dev/null && return 0
@@ -169,23 +212,12 @@ has_mongodb() {
 # ── Node Exporter ─────────────────────────────────────────────────────────────
 
 install_node_exporter() {
-  step "Node Exporter ${NODE_EXPORTER_VERSION}"
+  step "Node Exporter (airgap)"
 
-  if already_installed /usr/local/bin/node_exporter "$NODE_EXPORTER_VERSION"; then
-    log "Already at ${NODE_EXPORTER_VERSION}, skipping"
-  elif use_harbor; then
-    install_from_harbor "node-exporter" "$NODE_EXPORTER_VERSION" "node_exporter" /usr/local/bin/node_exporter
+  if already_installed /usr/local/bin/node_exporter ""; then
+    log "node_exporter already installed, skipping"
   else
-    local archive="node_exporter-${NODE_EXPORTER_VERSION}.linux-${ARCH}.tar.gz"
-    local csum_var="NODE_EXPORTER_CHECKSUM_${ARCH^^}"
-    download_verify \
-      "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/${archive}" \
-      "/tmp/${archive}" "${!csum_var}"
-    tar -xzf "/tmp/${archive}" -C /tmp
-    install -o root -g root -m 0755 \
-      "/tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-${ARCH}/node_exporter" \
-      /usr/local/bin/node_exporter
-    rm -rf "/tmp/${archive}" "/tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-${ARCH}"
+    extract_embedded "BLOB_NODE_EXPORTER_${ARCH^^}" /usr/local/bin/node_exporter
   fi
 
   create_user node_exporter
@@ -215,32 +247,12 @@ UNIT
 # ── Alloy ─────────────────────────────────────────────────────────────────────
 
 install_alloy() {
-  step "Alloy ${ALLOY_VERSION} (log shipping to ${MONITORING_SERVER_IP})"
+  step "Alloy (airgap, log shipping to ${MONITORING_SERVER_IP})"
 
-  if already_installed /usr/local/bin/alloy "$ALLOY_VERSION"; then
-    log "Already at ${ALLOY_VERSION}, skipping"
-  elif use_harbor; then
-    install_from_harbor "alloy" "$ALLOY_VERSION" "alloy-linux-${ARCH}" /usr/local/bin/alloy
+  if already_installed /usr/local/bin/alloy ""; then
+    log "alloy already installed, skipping"
   else
-    local archive="alloy-linux-${ARCH}.zip"
-    local csum_var="ALLOY_CHECKSUM_${ARCH^^}"
-    download_verify \
-      "https://github.com/grafana/alloy/releases/download/v${ALLOY_VERSION}/${archive}" \
-      "/tmp/${archive}" "${!csum_var}"
-    if ! command -v unzip &>/dev/null; then
-      if command -v apt-get &>/dev/null; then
-        apt-get install -y -q unzip
-      elif command -v dnf &>/dev/null; then
-        dnf install -y -q unzip
-      elif command -v yum &>/dev/null; then
-        yum install -y -q unzip
-      else
-        die "Cannot install unzip: no supported package manager found (apt-get/dnf/yum)"
-      fi
-    fi
-    unzip -o "/tmp/${archive}" "alloy-linux-${ARCH}" -d /tmp
-    install -o root -g root -m 0755 "/tmp/alloy-linux-${ARCH}" /usr/local/bin/alloy
-    rm -f "/tmp/${archive}" "/tmp/alloy-linux-${ARCH}"
+    extract_embedded "BLOB_ALLOY_${ARCH^^}" /usr/local/bin/alloy
   fi
 
   create_user alloy
@@ -248,7 +260,6 @@ install_alloy() {
 
   _write_alloy_config
 
-  # Docker mode needs group membership to read the socket
   if [[ "$LOG_SOURCE" == "docker" ]] && getent group docker &>/dev/null; then
     usermod -aG docker alloy
     log "Added alloy to docker group"
@@ -283,9 +294,8 @@ _write_alloy_config() {
 
   log "Writing Alloy config (log_source=${LOG_SOURCE})..."
 
-  # Journal block always present
   cat > /etc/alloy/config.alloy << EOF
-// Alloy config — generated by install_exporters.sh
+// Alloy config — generated by install_exporters_airgap.sh
 // Host: ${hostname} | Loki: ${loki_url}
 
 // ── Journal logs (always shipped) ────────────────────────────────────────────
@@ -345,7 +355,6 @@ loki.relabel "docker" {
 
 EOF
   else
-    # Build River array literal from FILE_LOG_PATHS
     local path_entries=""
     for p in "${FILE_LOG_PATHS[@]}"; do
       path_entries+="{\"__path__\" = \"${p}\", \"host\" = \"${hostname}\", \"job\" = \"file\"},"$'\n    '
@@ -381,29 +390,17 @@ EOF
 # ── PostgreSQL Exporter ───────────────────────────────────────────────────────
 
 install_postgres_exporter() {
-  step "postgres_exporter ${POSTGRES_EXPORTER_VERSION}"
+  step "postgres_exporter (airgap)"
 
-  if already_installed /usr/local/bin/postgres_exporter "$POSTGRES_EXPORTER_VERSION"; then
-    log "Already at ${POSTGRES_EXPORTER_VERSION}, skipping"
-  elif use_harbor; then
-    install_from_harbor "postgres-exporter" "$POSTGRES_EXPORTER_VERSION" "postgres_exporter" /usr/local/bin/postgres_exporter
+  if already_installed /usr/local/bin/postgres_exporter ""; then
+    log "postgres_exporter already installed, skipping"
   else
-    local archive="postgres_exporter-${POSTGRES_EXPORTER_VERSION}.linux-${ARCH}.tar.gz"
-    local csum_var="POSTGRES_EXPORTER_CHECKSUM_${ARCH^^}"
-    download_verify \
-      "https://github.com/prometheus-community/postgres_exporter/releases/download/v${POSTGRES_EXPORTER_VERSION}/${archive}" \
-      "/tmp/${archive}" "${!csum_var}"
-    tar -xzf "/tmp/${archive}" -C /tmp
-    install -o root -g root -m 0755 \
-      "/tmp/postgres_exporter-${POSTGRES_EXPORTER_VERSION}.linux-${ARCH}/postgres_exporter" \
-      /usr/local/bin/postgres_exporter
-    rm -rf "/tmp/${archive}" "/tmp/postgres_exporter-${POSTGRES_EXPORTER_VERSION}.linux-${ARCH}"
+    extract_embedded "BLOB_POSTGRES_EXPORTER_${ARCH^^}" /usr/local/bin/postgres_exporter
   fi
 
   create_user postgres_exporter
   install -d -m 0750 /etc/postgres_exporter
 
-  # DSN in env file keeps it out of ps output and systemd journal
   printf 'DATA_SOURCE_NAME=%s\n' "$POSTGRES_DSN" \
     > /etc/postgres_exporter/postgres_exporter.env
   chmod 0600 /etc/postgres_exporter/postgres_exporter.env
@@ -435,23 +432,15 @@ UNIT
 # ── MongoDB Exporter ──────────────────────────────────────────────────────────
 
 install_mongodb_exporter() {
-  step "mongodb_exporter ${MONGODB_EXPORTER_VERSION}"
+  step "mongodb_exporter (airgap)"
 
-  if already_installed /usr/local/bin/mongodb_exporter "$MONGODB_EXPORTER_VERSION"; then
-    log "Already at ${MONGODB_EXPORTER_VERSION}, skipping"
-  elif use_harbor; then
-    install_from_harbor "mongodb-exporter" "$MONGODB_EXPORTER_VERSION" "mongodb_exporter" /usr/local/bin/mongodb_exporter
+  local blob_var="BLOB_MONGODB_EXPORTER_${ARCH^^}"
+  [[ -n "${!blob_var}" ]] || die "MongoDB exporter blob is empty. Regenerate with: bash make_airgap.sh"
+
+  if already_installed /usr/local/bin/mongodb_exporter ""; then
+    log "mongodb_exporter already installed, skipping"
   else
-    local archive="mongodb_exporter-${MONGODB_EXPORTER_VERSION}.linux-${ARCH}.tar.gz"
-    local csum_var="MONGODB_EXPORTER_CHECKSUM_${ARCH^^}"
-    download_verify \
-      "https://github.com/percona/mongodb_exporter/releases/download/v${MONGODB_EXPORTER_VERSION}/${archive}" \
-      "/tmp/${archive}" "${!csum_var}"
-    tar -xzf "/tmp/${archive}" -C /tmp
-    install -o root -g root -m 0755 \
-      "/tmp/mongodb_exporter-${MONGODB_EXPORTER_VERSION}.linux-${ARCH}/mongodb_exporter" \
-      /usr/local/bin/mongodb_exporter
-    rm -rf "/tmp/${archive}" "/tmp/mongodb_exporter-${MONGODB_EXPORTER_VERSION}.linux-${ARCH}"
+    extract_embedded "$blob_var" /usr/local/bin/mongodb_exporter
   fi
 
   create_user mongodb_exporter
@@ -490,8 +479,8 @@ UNIT
 main() {
   echo -e "${BOLD}"
   echo "╔══════════════════════════════════════════════════╗"
-  echo "║   Exporter Installer                             ║"
-  echo "║   Rocky Linux / RHEL / AlmaLinux                 ║"
+  echo "║   Exporter Installer (AIR-GAP MODE)              ║"
+  echo "║   Rocky Linux / RHEL / AlmaLinux / Ubuntu        ║"
   echo "╚══════════════════════════════════════════════════╝"
   echo -e "${NC}"
   log "Arch: ${ARCH} | Monitoring server: ${MONITORING_SERVER_IP} | Log source: ${LOG_SOURCE}"
@@ -512,8 +501,6 @@ main() {
 
   if has_mongodb; then
     log "MongoDB detected → installing mongodb_exporter"
-    [[ "${MONGODB_EXPORTER_CHECKSUM_AMD64}" != "PLACEHOLDER"* ]] || \
-      die "Set MONGODB_EXPORTER_CHECKSUM_${ARCH^^} before running. Get it from:\nhttps://github.com/percona/mongodb_exporter/releases/tag/v${MONGODB_EXPORTER_VERSION}"
     install_mongodb_exporter
   else
     log "MongoDB not detected — skipping mongodb_exporter"
@@ -535,3 +522,13 @@ main() {
 }
 
 main "$@"
+SCRIPT_BODY
+
+chmod +x "$OUTPUT"
+
+SIZE=$(du -sh "$OUTPUT" | cut -f1)
+log "Done! Generated: ${OUTPUT} (${SIZE})"
+echo ""
+echo "  Copy to air-gapped server:"
+echo "    scp ${OUTPUT} root@<target-ip>:/tmp/"
+echo "    ssh root@<target-ip> 'bash /tmp/${OUTPUT}'"

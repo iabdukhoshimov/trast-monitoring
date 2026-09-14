@@ -8,3 +8,4 @@ __pycache__/
 # If you accidentally committed plaintext, rotate all secrets immediately.
 # Uncomment the line below to block committing plaintext vault entirely:
 # inventories/production/group_vars/all/vault.yml
+airgap_output/
