@@ -191,7 +191,17 @@ install_alloy() {
     download_verify \
       "https://github.com/grafana/alloy/releases/download/v${ALLOY_VERSION}/${archive}" \
       "/tmp/${archive}" "${!csum_var}"
-    command -v unzip &>/dev/null || dnf install -y -q unzip
+    if ! command -v unzip &>/dev/null; then
+      if command -v apt-get &>/dev/null; then
+        apt-get install -y -q unzip
+      elif command -v dnf &>/dev/null; then
+        dnf install -y -q unzip
+      elif command -v yum &>/dev/null; then
+        yum install -y -q unzip
+      else
+        die "Cannot install unzip: no supported package manager found (apt-get/dnf/yum)"
+      fi
+    fi
     unzip -o "/tmp/${archive}" "alloy-linux-${ARCH}" -d /tmp
     install -o root -g root -m 0755 "/tmp/alloy-linux-${ARCH}" /usr/local/bin/alloy
     rm -f "/tmp/${archive}" "/tmp/alloy-linux-${ARCH}"
