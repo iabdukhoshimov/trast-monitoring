@@ -15,7 +15,7 @@ set -euo pipefail
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 HARBOR_URL="harbor.trustbank.uz"
 HARBOR_PROJECT="monitoring"
-HARBOR_USER="${HARBOR_USER:-admin}"  # override: HARBOR_USER=myuser bash push_to_harbor.sh
+HARBOR_USER="${HARBOR_USER:-harbor.trustbank.uz}"
 
 ARCHES=("amd64" "arm64")
 
