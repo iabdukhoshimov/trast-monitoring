@@ -120,7 +120,7 @@ install_from_harbor() {
   log "Pulling ${tag}..."
   docker pull "$tag"
   local cid
-  cid=$(docker create "$tag")
+  cid=$(docker create "$tag" "/${bin_name}")
   docker cp "${cid}:/${bin_name}" "$dest"
   docker rm "$cid" &>/dev/null
   docker rmi "$tag" &>/dev/null || true
